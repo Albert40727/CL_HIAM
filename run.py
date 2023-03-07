@@ -37,8 +37,9 @@ if __name__ == "__main__":
         "max_sentence" : 10,
         "max_review_user" : 10,
         "max_review_item" : 30,
-        "word_cnn_ksize" : 3,
-        "sentence_cnn_ksize" : 3,
+        "lda_group_num": 6, #Include default 0 group. 
+        "word_cnn_ksize" : 3,   #odd number 
+        "sentence_cnn_ksize" : 3,   #odd number 
         "epoch" : 5,
         "batch_size": 32,
         "bert_configuration" : BertConfig(),

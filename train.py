@@ -9,7 +9,8 @@ def train_model(dataset, train_loader, model, args):
         train_loss = []
         train_accs = []
         for batch in tqdm(train_loader):
-            appIds, userIds, review_embs, labels = batch
+            appIds, userIds, review_embs, lda_groups, labels = batch
             review_embs = torch.permute(review_embs.to(args["device"]), (0, 2, 1))
+            lda_groups = lda_groups
             # review_embs = [batch_size, emb_dim, seq_length]
-            logits = model(review_embs)
+            logits = model(review_embs, lda_groups)

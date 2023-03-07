@@ -14,12 +14,13 @@ class ReviewDataset(Dataset):
         idx = idx + self.start
         appId = self.review_df["AppID"][idx]
         userId = self.review_df["UserID"][idx]
-        sentences = self.review_df["SplitReview"]
+        sentences = self.review_df["SplitReview"][idx]
         review_emb = torch.from_numpy(self.review_df["SplitReview_emb"][idx])
+        lda_group = torch.from_numpy(self.review_df["LDA_group"][idx])
         # review_emb = bert_encode(sentences[idx], self.args)
 
         y = self.review_df["Like"][idx]
-        return appId, userId, review_emb, y
+        return appId, userId, review_emb, lda_group, y
 
     def __len__(self):
         return len(self.review_df)
