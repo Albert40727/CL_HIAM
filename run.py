@@ -31,12 +31,14 @@ if __name__ == "__main__":
     args = {
         "device" : device,
         "data_dir" : r'../data/filtered_reviews_0-999.h5',
+        "user_apps": r"../data/interact_data/user_interacted_apps.pkl",
+        "app_users": r"../data/interact_data/app_interacted_users.pkl",
         "data_chunks_dir" : r'../data/chunks',
         "emb_dim" : 768,
         "max_word" : 25,
         "max_sentence" : 10,
         "max_review_user" : 10,
-        "max_review_item" : 30,
+        "max_review_item" : 200,
         "lda_group_num": 6, #Include default 0 group. 
         "word_cnn_ksize" : 3,   #odd number 
         "sentence_cnn_ksize" : 3,   #odd number 
