@@ -1,28 +1,19 @@
 import torch
-import os 
-from function.custom_dataset import ReviewDataset   
+from function.review_dataset import ReviewDataset   
 from model.hian_base import HianModel
-from tqdm import tqdm
+from model.co_attention import CoattentionNet
 from train import train_model
 from torch.utils.data import DataLoader 
 from transformers import BertTokenizer, BertModel, BertConfig
-import torch.utils.data as data
 
                                                                    
 def main(**args):
-
-    #Get .h5 file chunks and concat them into ConcatDataset
-    list_of_datasets = []
-    for h5 in os.listdir(args["data_chunks_dir"]):
-        if not h5.endswith('.h5'):
-            continue  # skip non-h5 files
-        list_of_datasets.append(ReviewDataset(h5, args))
-    concat_dataset = data.ConcatDataset(list_of_datasets)
-
-    # dataset = ReviewDataset(args)
-    train_loader = DataLoader(concat_dataset, batch_size=args["batch_size"], shuffle=False)
-    model = HianModel(args).to(device)
-    train_model(concat_dataset, train_loader, model, args)
+    dataset = ReviewDataset(args)
+    train_loader = DataLoader(dataset, batch_size=args["batch_size"], shuffle=False)
+    user_network_model = HianModel(args).to(device)
+    item_network_model = HianModel(args).to(device)
+    co_attention_network = CoattentionNet(args, args["co_attention_emb_dim"]).to(device)
+    train_model(args, train_loader, user_network_model, item_network_model, co_attention_network)
 
 if __name__ == "__main__":
 
@@ -30,15 +21,16 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     args = {
         "device" : device,
-        "data_dir" : r'../data/filtered_reviews_0-999.h5',
-        "user_apps": r"../data/interact_data/user_interacted_apps.pkl",
-        "app_users": r"../data/interact_data/app_interacted_users.pkl",
-        "data_chunks_dir" : r'../data/chunks',
+        "data_dir" : r'../data/filtered_reviews_group.pkl',
+        "user_data_dir" : r'../data/user_emb/',
+        "item_data_dir" : r'../data/item_emb/',
+        "data_chunks_dir" : r'../data/chunks/',
         "emb_dim" : 768,
+        "co_attention_emb_dim" : 256,
         "max_word" : 25,
         "max_sentence" : 10,
         "max_review_user" : 10,
-        "max_review_item" : 200,
+        "max_review_item" : 50,
         "lda_group_num": 6, #Include default 0 group. 
         "word_cnn_ksize" : 3,   #odd number 
         "sentence_cnn_ksize" : 3,   #odd number 
