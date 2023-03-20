@@ -21,9 +21,11 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     args = {
         "device" : device,
-        "data_dir" : r'../data/filtered_reviews_group.pkl',
-        "user_data_dir" : r'../data/user_emb/',
-        "item_data_dir" : r'../data/item_emb/',
+        "data_dir" : r'../data/train_df.pkl',
+        "user_mf_data_dir" : r'../data/train_user_mf_emb.pkl',
+        "item_mf_data_dir" : r'../data/train_item_mf_emb.pkl',
+        "user_data_dir" : r'../data/user_emb/train',
+        "item_data_dir" : r'../data/item_emb/train',
         "data_chunks_dir" : r'../data/chunks/',
         "emb_dim" : 768,
         "co_attention_emb_dim" : 256,
@@ -38,7 +40,7 @@ if __name__ == "__main__":
         "batch_size": 32,
         "bert_configuration" : BertConfig(),
         "bert_model" : BertModel.from_pretrained('bert-base-uncased', output_hidden_states = True).to(device),
-        "bert_tokenizer" : BertTokenizer.from_pretrained('bert-base-uncased', use_fast=True),
+        "bert_tokenizer" : BertTokenizer.from_pretrained('bert-base-uncased', use_fast=True)
     }
 
     print("Device: ",device)

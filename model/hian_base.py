@@ -25,15 +25,19 @@ class HianModel(nn.Module):
                             |
                             |aspect weighted sum
                             v
-                    x: 32, N, D                 
+                        x: 32, N, D
+                            |
+                            |Review_network
+                            v  
+                        x: 32, D               
     """
     """
-    Word Emb:  torch.Size([50, 250, 768])
-    Sentence Emb:  torch.Size([50, 512, 10])
+    Word Emb:               torch.Size([50, 250, 768])
+    Sentence Emb:           torch.Size([50, 10, 512])
     Weighted Sentence Emb:  torch.Size([50, 10, 256])
-    Aspect Emb:  torch.Size([50, 6, 256])
-    Aspect Review Emb:  torch.Size([50, 256])
-    User Emb:  torch.Size([256])
+    Aspect Emb:             torch.Size([50, 6, 256])
+    Aspect Review Emb:      torch.Size([50, 256])
+    User/Item Emb:          torch.Size([256])
     """
 
     def __init__(self, args):
@@ -68,7 +72,7 @@ class HianModel(nn.Module):
     
     def word_weighted_sum(self, input_tensor, max_word):
         """
-        Average words' emb into sentences' emb.
+        Weighted sum words' emb into sentences' emb.
         input:  input_tensor = (max_review, word*sentence, emb_dim)
         output: tensor(max_review, sentence, emb_dim)
         """
@@ -81,7 +85,7 @@ class HianModel(nn.Module):
     
     def get_aspect_emb_from_sent(self, input_tensor, lda_groups, group_num):
         """
-        Average sentences' emb according to their LDA groups respectively.  
+        Weighted sum sentences' emb according to their LDA groups respectively.  
         input:  input_tensor = (max_review, sentence, emb_dim)
         output: tensor(max_review, aspect, emb_dim)
         """
@@ -123,10 +127,8 @@ class HianModel(nn.Module):
 
             #Review-Level Network
             attn_output = self.review_attention(x, key=x, value=x, need_weights=False)
-            x = torch.sum(x * attn_output[0], 0) #weighted sum
+            x = x * attn_output[0]
             x_list.append(x)
 
-        # print("Result: ", torch.stack(x_list).size())
         result_x = torch.stack(x_list)
-
         return result_x

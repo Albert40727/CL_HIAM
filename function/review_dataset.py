@@ -8,6 +8,8 @@ class ReviewDataset(Dataset):
     def __init__(self, args):
         self.args = args
         self.review_df = pd.read_pickle(args["data_dir"])
+        self.user_mf_df = pd.read_pickle(args["user_mf_data_dir"])
+        self.item_mf_df = pd.read_pickle(args["item_mf_data_dir"])
         # self.start = int(file_name.split(".")[0].split("_")[2].split("-")[0]) # ex: "filtered_reviews_500-599.h5" -> 500
       
     def __getitem__(self, idx):
@@ -29,6 +31,7 @@ class ReviewDataset(Dataset):
         pad_user_lda = torch.zeros(self.args["max_review_user"], user_lda_groups.size(1))
         pad_item_lda = torch.zeros(self.args["max_review_item"], item_lda_groups.size(1))
 
+        # Trunc user/item data to max_review_user/max_review_item
         if user_review_emb.size(0) > self.args["max_review_user"]:
             pad_user_emb = user_review_emb[:self.args["max_review_user"], :, :]
         else:
@@ -49,7 +52,10 @@ class ReviewDataset(Dataset):
         else:
             pad_item_lda[:item_lda_groups.size(0), :] = item_lda_groups
 
-        return userId, itemId, pad_user_emb, pad_item_emb, pad_user_lda, pad_item_lda, y
+        user_mf_emb =  torch.from_numpy(self.user_mf_df[self.user_mf_df["UserID"]==userId]["MF_emb"].values[0])
+        item_mf_emb =  torch.from_numpy(self.item_mf_df[self.item_mf_df["AppID"]==itemId]["MF_emb"].values[0])
+
+        return userId, itemId, pad_user_emb, pad_item_emb, pad_user_lda, pad_item_lda, user_mf_emb, item_mf_emb, y
 
     def __len__(self):
         return len(self.review_df)
