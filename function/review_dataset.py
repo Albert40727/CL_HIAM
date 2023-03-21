@@ -5,9 +5,12 @@ import torch
 import os 
 
 class ReviewDataset(Dataset):
-    def __init__(self, args):
+    def __init__(self, args, *, target):
         self.args = args
-        self.review_df = pd.read_pickle(args["data_dir"])
+        if target =="train":
+            self.review_df = pd.read_pickle(args["train_data_dir"])
+        elif target =="val":
+            self.review_df = pd.read_pickle(args["val_data_dir"])
         self.user_mf_df = pd.read_pickle(args["user_mf_data_dir"])
         self.item_mf_df = pd.read_pickle(args["item_mf_data_dir"])
         # self.start = int(file_name.split(".")[0].split("_")[2].split("-")[0]) # ex: "filtered_reviews_500-599.h5" -> 500
@@ -55,7 +58,7 @@ class ReviewDataset(Dataset):
         user_mf_emb =  torch.from_numpy(self.user_mf_df[self.user_mf_df["UserID"]==userId]["MF_emb"].values[0])
         item_mf_emb =  torch.from_numpy(self.item_mf_df[self.item_mf_df["AppID"]==itemId]["MF_emb"].values[0])
 
-        return userId, itemId, pad_user_emb, pad_item_emb, pad_user_lda, pad_item_lda, user_mf_emb, item_mf_emb, y
+        return pad_user_emb, pad_item_emb, pad_user_lda, pad_item_lda, user_mf_emb, item_mf_emb, y
 
     def __len__(self):
         return len(self.review_df)
