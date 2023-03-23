@@ -5,46 +5,51 @@ import torch
 
 class HianModel(nn.Module):
     """
-    B: Batch, D:Output Dimension, W: Word, S:Sentence, A:Aspect, N: User/Item max review num
+    B: Batch, N: User/Item max review num, W: Word, S:Sentence, A:Aspect, D:Output Dimension 
                           input   
                             |
                             v
-                    x: 32, N, 250, 768 (B, W*S, D)
+                    x: 32, N, 250, 768 (B, N, W*S, D)
                             |
                             |w_cnn_network + attention
                             v
-                    x: 32, N, 10, D  (B, S, D)
+                    x: 32, N, 10, D  (B, N, S, D)
                             |
                             |s_cnn_network + attention
                             v 
-                    x: 32, N, 10, D  (B, S, D)
+                    x: 32, N, 10, D  (B, N, S, D)
                             |
                             |(LDA) + attention
                             v             
-                    x: 32, N, 6, D   (B, A, D)
+                    x: 32, N, 6, D   (B, N, A, D)
                             |
-                            |aspect weighted sum
+                            |aspect attention weighted sum
                             v
+                        x: 32, N, D  (B, N, D)
+                            |
+                            |review_network
+                            v  
                         x: 32, N, D
                             |
-                            |Review_network
-                            v  
-                        x: 32, D               
+                            |co_attention
+                            v
+                        x: 32, D                 
     """
     """
+    (Some emb might be permuted during training due to the conv1d input format)
     Word Emb:               torch.Size([50, 250, 768])
     Sentence Emb:           torch.Size([50, 10, 512])
     Weighted Sentence Emb:  torch.Size([50, 10, 256])
     Aspect Emb:             torch.Size([50, 6, 256])
     Aspect Review Emb:      torch.Size([50, 256])
-    User/Item Emb:          torch.Size([256])
+    User/Item Emb:          torch.Size([256]) (after co-attention) 
     """
 
     def __init__(self, args):
         super().__init__()
         self.args = args
 
-        #Word-Level Network
+        # Word-Level Network
         self.word_pad_size = int((self.args["word_cnn_ksize"]-1)/2)
         self.word_cnn_network = nn.Sequential(
             nn.Conv1d(768, 512, self.args["word_cnn_ksize"]),
@@ -53,7 +58,7 @@ class HianModel(nn.Module):
         )
         self.word_attention = nn.MultiheadAttention(512, num_heads=1, batch_first =True)
         
-        #Sentence-Level Network
+        # Sentence-Level Network
         self.sent_pad_size = int((self.args["sentence_cnn_ksize"]-1)/2)
         self.sentence_cnn_network = nn.Sequential(
             nn.Conv1d(512, 256, self.args["sentence_cnn_ksize"]),
@@ -62,25 +67,57 @@ class HianModel(nn.Module):
         )
         self.sentence_attention = nn.MultiheadAttention(256, num_heads=1)
 
-        #Aspect-Level Network
+        # Aspect-Level Network
         self.lda_group_num = self.args["lda_group_num"]
         self.aspect_attention = nn.MultiheadAttention(256, num_heads=1)
 
         
-        #Review-Level Network
+        # Review-Level Network
         self.review_attention = nn.MultiheadAttention(256, num_heads=1)
+
+    def word_level_network(self, x, word_cnn, word_attention):
+        x = torch.permute(x, (0, 2, 1))
+        x = F.pad(x, (self.word_pad_size, self.word_pad_size), "constant", 0) # same to keras: padding = same
+        x = word_cnn(x)
+        x = torch.permute(x, [0, 2, 1])
+        attn_output = word_attention(x, key=x, value=x, need_weights=False)
+        x = x * attn_output[0] 
+        x = self.word_weighted_sum(x, self.args["max_sentence"])
+        x = torch.permute(x, [0, 2, 1])
+        return x
     
-    def word_weighted_sum(self, input_tensor, max_word):
+    def sentence_level_network(self, x, sent_cnn, sent_attention):
+        x = F.pad(x, (self.sent_pad_size, self.sent_pad_size), "constant", 0) # same to keras: padding = same
+        x = sent_cnn(x)
+        x = torch.permute(x, [0, 2, 1])
+        attn_output = sent_attention(x, key=x, value=x, need_weights=False)
+        x = x * attn_output[0]
+        return x 
+    
+    def aspect_level_network(self, x, lda_groups, aspect_attention):
+        lda_groups = lda_groups.reshape(-1, lda_groups.size(2))
+        x = self.get_aspect_emb_from_sent(x, lda_groups, self.lda_group_num) 
+        attn_output = aspect_attention(x, key=x, value=x, need_weights=False)
+        x = torch.sum(x * attn_output[0], 1) #weighted sum
+        return x
+
+    def review_level_network(self, x, review_attetion, *, batch_size):
+        attn_output = review_attetion(x, key=x, value=x, need_weights=False)
+        x = x * attn_output[0]
+        x = x.reshape(batch_size, -1, x.size(1))
+        return x 
+
+    
+    def word_weighted_sum(self, input_tensor, max_sentence):
         """
         Weighted sum words' emb into sentences' emb.
         input:  input_tensor = (max_review, word*sentence, emb_dim)
         output: tensor(max_review, sentence, emb_dim)
         """
-        tensor_list = []
-        for i in range(0, input_tensor.size(dim=1), max_word):
-            start, end = i, i+max_word
-            tensor_list.append(torch.sum(input_tensor[:, start:end, :], dim=1))
-        sentence_tensor = torch.stack(tensor_list, dim=1)
+        batch, num_word, word_dim = input_tensor.shape
+        input_tensor = input_tensor.reshape(batch, max_sentence, -1, word_dim)
+        sentence_tensor = torch.sum(input_tensor, dim=2)
+
         return sentence_tensor
     
     def get_aspect_emb_from_sent(self, input_tensor, lda_groups, group_num):
@@ -89,46 +126,37 @@ class HianModel(nn.Module):
         input:  input_tensor = (max_review, sentence, emb_dim)
         output: tensor(max_review, aspect, emb_dim)
         """
-        aspect_review_tensor = torch.zeros(input_tensor.size(0), group_num, input_tensor.size(2)).to(self.args["device"])
-        for i, groups in enumerate(lda_groups):
-            for group in range(group_num):
-                # torch.nonzero(condition, as_tuple=True) is identical to torch.where(condition).
-                select_indices = torch.nonzero(groups==group, as_tuple=False).squeeze().to(self.args["device"])
-                aspect_review_tensor[i, group, :] = torch.sum(torch.index_select(input_tensor[i], 0, select_indices), 0)        
+        lda_groups = torch.unsqueeze(lda_groups, dim=-1)
+        group_tensor_list = []
+
+        for group in range(group_num):
+            mask = lda_groups == group
+            mask_sum = torch.sum(mask, dim=1)
+            mask_sum[mask_sum == 0] = 1
+            group_tensor = torch.where(mask , input_tensor, 0.0)
+            group_tensor = torch.sum(group_tensor, dim = 1)
+            group_tensor = group_tensor/mask_sum
+            group_tensor_list.append(group_tensor)
+
+        aspect_review_tensor = torch.stack(group_tensor_list).permute(1, 0, 2)      
         return aspect_review_tensor
+    
 
-    def forward(self, xs, lda_groups):
+    def forward(self, x, lda_groups):
 
-        x_list = []
+        batch_size, num_review, num_words, word_dim = x.shape
+        x = x.reshape(-1, x.size(2), x.size(3))
 
-        for i, x in enumerate(xs):
+        # Word-Level Network
+        x = self.word_level_network(x, self.word_cnn_network, self.word_attention)
 
-            # Word-Level Network
-            x = torch.permute(x, (0, 2, 1))
-            x = F.pad(x, (self.word_pad_size, self.word_pad_size), "constant", 0) # same to keras: padding = same
-            x = self.word_cnn_network(x)
-            x = torch.permute(x, [0, 2, 1])
-            attn_output = self.word_attention(x, key=x, value=x, need_weights=False)
-            x = x * attn_output[0] 
-            x = self.word_weighted_sum(x, self.args["max_word"])
-            x = torch.permute(x, [0, 2, 1])
+        #Sentence-Level Network
+        x = self.sentence_level_network(x, self.sentence_cnn_network, self.sentence_attention)
 
-            #Sentence-Level Network
-            x = F.pad(x, (self.sent_pad_size, self.sent_pad_size), "constant", 0) # same to keras: padding = same
-            x = self.sentence_cnn_network(x)
-            x = torch.permute(x, [0, 2, 1])
-            attn_output = self.sentence_attention(x, key=x, value=x, need_weights=False)
-            x = x * attn_output[0]
+        #Aspect-Level Network
+        x = self.aspect_level_network(x, lda_groups, self.aspect_attention)
 
-            #Aspect-Level Network
-            x = self.get_aspect_emb_from_sent(x, lda_groups[i], self.lda_group_num) 
-            attn_output = self.aspect_attention(x, key=x, value=x, need_weights=False)
-            x = torch.sum(x * attn_output[0], 1) #weighted sum
+        #Review-Level Network
+        x = self.review_level_network(x, self.review_attention, batch_size=batch_size)
 
-            #Review-Level Network
-            attn_output = self.review_attention(x, key=x, value=x, need_weights=False)
-            x = x * attn_output[0]
-            x_list.append(x)
-
-        result_x = torch.stack(x_list)
-        return result_x
+        return x
