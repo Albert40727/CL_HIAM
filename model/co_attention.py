@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as fn
-import torch.nn.utils.rnn as rnn
 
 # git repo src: https://github.com/SkyOL5/VQA-CoAttention/blob/master/coatt/coattention_net.py
 
@@ -26,7 +25,7 @@ class CoattentionNet(nn.Module):
 
 
     def parallel_co_attention(self, Q, V):  
-        # Original paper:   V : B x 512 x 196, Q : B x L x 512
+        # Original paper:   V : B x 512 x 196(Seq), Q : B x L x 512
         # Our paper:        V : B x 50 x 256, Q : B x 10 x 256
         # V = item, Q=User
 

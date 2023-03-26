@@ -2,41 +2,40 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 
-
 class HianModel(nn.Module):
     """
     B: Batch, N: User/Item max review num, W: Word, S:Sentence, A:Aspect, D:Output Dimension 
-                          input   
-                            |
+            input:  x: 32, N, 250, 768 
+                            |reshape
                             v
-                    x: 32, N, 250, 768 (B, N, W*S, D)
+                    x: 32*N, 250, 768 (B, N, W*S, D)
                             |
                             |w_cnn_network + attention
                             v
-                    x: 32, N, 10, D  (B, N, S, D)
+                    x: 32*N, 10, D  (B, N, S, D)
                             |
                             |s_cnn_network + attention
                             v 
-                    x: 32, N, 10, D  (B, N, S, D)
+                    x: 32*N, 10, D  (B, N, S, D)
                             |
                             |(LDA) + attention
                             v             
-                    x: 32, N, 6, D   (B, N, A, D)
+                    x: 32*N, 6, D   (B, N, A, D)
                             |
                             |aspect attention weighted sum
                             v
-                        x: 32, N, D  (B, N, D)
+                    x: 32, N, D  (B, N, D)
                             |
                             |review_network
                             v  
                         x: 32, N, D
                             |
-                            |co_attention
+                            |co_attention (Outside HianModel)
                             v
                         x: 32, D                 
     """
     """
-    (Some emb might be permuted during training due to the conv1d input format)
+    (Some emb might be permuted during training due to the Conv1d input format)
     Word Emb:               torch.Size([50, 250, 768])
     Sentence Emb:           torch.Size([50, 10, 512])
     Weighted Sentence Emb:  torch.Size([50, 10, 256])
@@ -111,10 +110,8 @@ class HianModel(nn.Module):
     def word_weighted_sum(self, input_tensor, max_sentence):
         """
         Weighted sum words' emb into sentences' emb.
-        input:  input_tensor = (max_review, word*sentence, emb_dim)
-        output: tensor(max_review, sentence, emb_dim)
         """
-        batch, num_word, word_dim = input_tensor.shape
+        batch, word_num, word_dim = input_tensor.shape
         input_tensor = input_tensor.reshape(batch, max_sentence, -1, word_dim)
         sentence_tensor = torch.sum(input_tensor, dim=2)
 
@@ -123,8 +120,6 @@ class HianModel(nn.Module):
     def get_aspect_emb_from_sent(self, input_tensor, lda_groups, group_num):
         """
         Weighted sum sentences' emb according to their LDA groups respectively.  
-        input:  input_tensor = (max_review, sentence, emb_dim)
-        output: tensor(max_review, aspect, emb_dim)
         """
         lda_groups = torch.unsqueeze(lda_groups, dim=-1)
         group_tensor_list = []
@@ -146,17 +141,9 @@ class HianModel(nn.Module):
 
         batch_size, num_review, num_words, word_dim = x.shape
         x = x.reshape(-1, x.size(2), x.size(3))
-
-        # Word-Level Network
         x = self.word_level_network(x, self.word_cnn_network, self.word_attention)
-
-        #Sentence-Level Network
         x = self.sentence_level_network(x, self.sentence_cnn_network, self.sentence_attention)
-
-        #Aspect-Level Network
         x = self.aspect_level_network(x, lda_groups, self.aspect_attention)
-
-        #Review-Level Network
         x = self.review_level_network(x, self.review_attention, batch_size=batch_size)
 
         return x
