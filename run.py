@@ -54,8 +54,9 @@ def main(**args):
                                                                models_params=params, 
                                                                optimizer=optimizer)
         end = time.time()
-
         print("模型總訓練時間：", str(datetime.timedelta(seconds=int(end - start))))
+
+        # Plot loss & acc curves
         draw_loss_curve(train_loss, val_loss)
         draw_acc_curve(train_acc, val_acc)
 
@@ -116,15 +117,15 @@ def main(**args):
                          list(fc_layer_2_stage2.parameters()) + 
                          list(fc_layer_3_stage2.parameters()))
         
-        user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=1e-3, weight_decay=1e-4)
-        item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-3, weight_decay=1e-4)
-        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-3, weight_decay=1e-4)
+        user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=1e-2, weight_decay=1e-3)
+        item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-2, weight_decay=1e-3)
+        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-2, weight_decay=1e-3)
 
         # Training 
         start = time.time()
         # Stage1 
-        (t_user_loss_list_stage1, t_user_acc_list_stage1, t_item_loss_list_stage1, t_item_acc_list_stage1,
-          v_user_loss_list_stage1, v_user_acc_list_stage1, v_item_loss_list_stage1, v_item_acc_list_stage1) = \
+        (t_user_loss_stage1, t_user_acc_stage1, t_item_loss_stage1, t_item_acc_stage1,
+          v_user_loss_stage1, v_user_acc_stage1, v_item_loss_stage1, v_item_acc_stage1) = \
         train_stage1_model(
             args,                                                           
             train_loader_stage1,
@@ -136,15 +137,9 @@ def main(**args):
             criterions=[user_criterion_stage1, item_criterion_stage1], 
             models_params=[user_params_stage1, item_params_stage1], 
             optimizers=[user_optimizer_stage1, item_optimizer_stage1])
-        
-        # Plot stage1 acc & loss
-        draw_acc_curve_stage1(t_user_acc_list_stage1, v_user_acc_list_stage1, target="User")
-        draw_acc_curve_stage1(t_item_acc_list_stage1, v_item_acc_list_stage1, target="Item")
-        draw_loss_curve_stage1(t_user_loss_list_stage1, v_user_loss_list_stage1, target="User")
-        draw_loss_curve_stage1(t_item_loss_list_stage1, v_item_loss_list_stage1, target="Item")
 
         # Stage2
-        t_loss_stage2, t_accs_stage2, v_loss_stage2, v_accs_stage2 = \
+        t_loss_stage2, t_acc_stage2, v_loss_stage2, v_acc_stage2 = \
         train_stage2_model(
             args,                                                           
             train_loader,
@@ -157,11 +152,16 @@ def main(**args):
             models_param = params_stage2, 
             optimizer = optimizer_stage2)
         
-        # Plot stage2 acc & loss
-        draw_acc_curve_stage2(t_accs_stage2, v_accs_stage2)
+        # Plot stage1 loss & acc
+        draw_loss_curve_stage1(t_user_loss_stage1, v_user_loss_stage1, t_item_loss_stage1, v_item_loss_stage1)
+        draw_acc_curve_stage1(t_user_acc_stage1, v_user_acc_stage1, t_item_acc_stage1, v_item_acc_stage1)
+        
+        # Plot stage2 loss & acc
         draw_loss_curve_stage2(t_loss_stage2, v_loss_stage2)
+        draw_acc_curve_stage2(t_acc_stage2, v_acc_stage2)
         
         end = time.time()
+        print("模型總訓練時間：", str(datetime.timedelta(seconds=int(end - start))))
 
     
 if __name__ == "__main__":

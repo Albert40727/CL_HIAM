@@ -1,7 +1,6 @@
-from .hian import HianModel
 import torch.nn as nn
 import torch.nn.functional as F
-import torch
+from .hian import HianModel
 class HianCollabStage2(HianModel):
     def __init__(self, args):
         super().__init__(args)

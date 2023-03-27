@@ -1,8 +1,7 @@
-import datetime
 import torch
+import time
 import torch.nn as nn
 import matplotlib.pyplot as plt
-import time
 from tqdm import tqdm
 from sklearn.metrics import precision_score, recall_score, f1_score
 
@@ -148,7 +147,7 @@ def train_stage1_model(args,
                    user_val_precisions_stage1,
                    user_val_recalls_stage1,
                    user_val_f1s_stage1,
-                   mode = "Valid",
+                   mode = "valid",
                    target = "user",
                    epoch = epoch,
                    n_epochs = n_epochs)
@@ -159,7 +158,7 @@ def train_stage1_model(args,
                    item_val_precisions_stage1,
                    item_val_recalls_stage1,
                    item_val_f1s_stage1,
-                   mode = "Valid",
+                   mode = "valid",
                    target="item",
                    epoch = epoch,
                    n_epochs = n_epochs)
@@ -254,21 +253,32 @@ def epoch_info(loss, accs, precisions, recalls, f1s, *, mode, target, epoch, n_e
     mean_recall = sum(recalls) / len(recalls)
     mean_f1 = sum(f1s) / len(f1s)
     print(f"[ {mode} {target}-stage1 | {epoch + 1:03d}/{n_epochs:03d} ] loss = {mean_loss:.5f}, acc = {mean_acc:.4f}, precision = {mean_precision:.4f}, recall = {mean_recall:.4f}, f1 = {mean_f1}")
+
+    with open(f'output/history/{target}_stage1.csv','a') as file:
+        file.write(time.strftime("%m-%d %H:%M")+","+f"{mode},{target}-stage1,{epoch + 1:03d}/{n_epochs:03d},{mean_loss:.5f},{mean_acc:.4f},{mean_precision:.4f},{mean_recall:.4f},{mean_f1}" + "\n")
     
     return mean_loss, mean_acc, mean_precision, mean_recall, mean_f1
 
-def draw_loss_curve_stage1(train_loss, valid_loss, *, target):
-    plt.plot(train_loss, color="blue", label="Train", marker='o')
-    plt.plot(valid_loss, color="red", label="Valid", marker='o')
+def draw_loss_curve_stage1(u_train_loss, u_valid_loss, i_train_loss, i_valid_loss):
+    plt.plot(u_train_loss, color="mediumblue", label="user-train", marker='o')
+    plt.plot(u_valid_loss, color="cornflowerblue", label="user-valid", marker='o')
+    plt.plot(i_train_loss, color="deeppink", label="item-train", marker='o')
+    plt.plot(i_valid_loss, color="pink", label="item-valid", marker='o')
     plt.legend(loc="upper right")
-    plt.title(f"Stage1 {target} Loss Curve")
-    plt.savefig('output/plot/collab/loss_{}_stage1_{}.png'.format(target, time.strftime("%m%d%H%M%S")))
-    plt.draw()
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title(f"Stage1 Loss Curve")
+    plt.savefig('output/plot/collab/loss_stage1_{}.png'.format(time.strftime("%m%d%H%M%S")))
+    plt.show()
 
-def draw_acc_curve_stage1(train_acc, valid_acc, *, target):
-    plt.plot(train_acc, color="forestgreen", label="Train", marker='o')
-    plt.plot(valid_acc, color="gold", label="Valid", marker='o')
+def draw_acc_curve_stage1(u_train_acc, u_valid_acc, i_train_acc, i_valid_acc):
+    plt.plot(u_train_acc, color="mediumblue", label="user-train", marker='o')
+    plt.plot(u_valid_acc, color="cornflowerblue", label="user-valid", marker='o')
+    plt.plot(i_train_acc, color="deeppink", label="item-train", marker='o')
+    plt.plot(i_valid_acc, color="pink", label="item-valid", marker='o')
     plt.legend(loc="upper right")
-    plt.title(f"Stage1 {target} Acc Curve")
-    plt.savefig('output/plot/collab/acc_{}_stage1_{}.png'.format(target, time.strftime("%m%d%H%M%S")))
-    plt.draw()
+    plt.xlabel("Epoch")
+    plt.ylabel("Acc")
+    plt.title(f"Stage1 Acc Curve")
+    plt.savefig('output/plot/collab/acc_stage1_{}.png'.format(time.strftime("%m%d%H%M%S")))
+    plt.show()

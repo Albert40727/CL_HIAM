@@ -1,9 +1,11 @@
-from tqdm import tqdm
-import matplotlib.pyplot as plt
+
 import torch
-import torch.nn as nn
-from sklearn.metrics import precision_score, recall_score, f1_score, ndcg_score
 import time
+import torch.nn as nn
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+from sklearn.metrics import precision_score, recall_score, f1_score, ndcg_score
+
 
 def train_stage2_model(args, 
                        train_loader, 
@@ -119,6 +121,8 @@ def train_stage2_model(args,
         train_f1 = sum(train_f1s) / len(train_f1s)
 
         print(f"[ Train stage2 | {epoch + 1:03d}/{n_epochs:03d} ] loss = {train_loss:.5f}, acc = {train_acc:.4f}, precision = {train_precision:.4f}, recall = {train_recall:.4f}, f1 = {train_f1}")
+        with open('output/history/stage2.csv','a') as file:
+            file.write(time.strftime("%m-%d %H:%M")+","+f"train,stage2,{epoch + 1:03d}/{n_epochs:03d},{train_loss:.5f},{train_acc:.4f},{train_precision:.4f},{train_recall:.4f},{train_f1}" + "\n")
 
         # ---------- Validation ----------
         # Make sure the model is in eval mode so that some modules like dropout are disabled and work normally.
@@ -185,6 +189,8 @@ def train_stage2_model(args,
         valid_f1 = sum(valid_f1s) / len(valid_f1s)
 
         print(f"[ Valid stage2 | {epoch + 1:03d}/{n_epochs:03d} ] loss = {valid_loss:.5f}, acc = {valid_acc:.4f}, precision = {valid_precision:.4f}, recall = {valid_recall:.4f}, f1 = {valid_f1}")
+        with open('output/history/stage2.csv','a') as file:
+            file.write(time.strftime("%m-%d %H:%M")+","+f"valid,stage2,{epoch + 1:03d}/{n_epochs:03d},{valid_loss:.5f},{valid_acc:.4f},{valid_precision:.4f},{valid_recall:.4f},{valid_f1}" + "\n")
 
         t_loss_list_stage2.append(train_loss)
         t_acc_list_stage2.append(train_acc.cpu())
@@ -202,18 +208,21 @@ def train_stage2_model(args,
     return t_loss_list_stage2, t_acc_list_stage2, v_loss_list_stage2, v_acc_list_stage2
 
 def draw_loss_curve_stage2(train_loss, valid_loss):
-    plt.plot(train_loss, color="blue", label="Train", marker='o')
-    plt.plot(valid_loss, color="red", label="Valid", marker='o')
+    plt.plot(train_loss, color="mediumblue", label="Train", marker='o')
+    plt.plot(valid_loss, color="cornflowerblue", label="Valid", marker='o')
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
     plt.legend(loc="upper right")
     plt.title("Stage2 Loss Curve")
     plt.savefig('output/plot/collab/loss_stage2_{}.png'.format(time.strftime("%m%d%H%M%S")))
-    plt.draw()
+    plt.show(block=False)
 
 def draw_acc_curve_stage2(train_acc, valid_acc):
-    plt.plot(train_acc, color="forestgreen", label="Train", marker='o')
-    plt.plot(valid_acc, color="gold", label="Valid", marker='o')
+    plt.plot(train_acc, color="deeppink", label="Train", marker='o')
+    plt.plot(valid_acc, color="pink", label="Valid", marker='o')
+    plt.xlabel("Epoch")
+    plt.ylabel("Acc")
     plt.legend(loc="upper right")
     plt.title("Stage2 Acc Curve")
     plt.savefig('output/plot/collab/acc_stage2_{}.png'.format(time.strftime("%m%d%H%M%S")))
-    plt.draw()
-    return
+    plt.show(block=False)

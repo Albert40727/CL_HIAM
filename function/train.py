@@ -1,9 +1,9 @@
-from tqdm import tqdm
-import matplotlib.pyplot as plt
 import torch
+import time
 import torch.nn as nn
+import matplotlib.pyplot as plt
+from tqdm import tqdm
 from sklearn.metrics import precision_score, recall_score, f1_score, ndcg_score
-import time 
 
 def train_model(args, train_loader, val_loader, user_network, item_network, co_attention, fc_layer,
                  *, criterion, models_params, optimizer):
@@ -80,6 +80,8 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
         train_f1 = sum(train_f1s) / len(train_f1s)
 
         print(f"[ Train | {epoch + 1:03d}/{n_epochs:03d} ] loss = {train_loss:.5f}, acc = {train_acc:.4f}, precision = {train_precision:.4f}, recall = {train_recall:.4f}, f1 = {train_f1}")
+        with open('output/history/base.csv','a') as file:
+            file.write(time.strftime("%m-%d %H:%M")+","+f"train,base,{epoch + 1:03d}/{n_epochs:03d},{train_loss:.5f},{train_acc:.4f},{train_precision:.4f},{train_recall:.4f},{train_f1}" + "\n")
 
         # ---------- Validation ----------
         # Make sure the model is in eval mode so that some modules like dropout are disabled and work normally.
@@ -141,6 +143,8 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
         valid_f1 = sum(valid_f1s) / len(valid_f1s)
 
         print(f"[ Valid | {epoch + 1:03d}/{n_epochs:03d} ] loss = {valid_loss:.5f}, acc = {valid_acc:.4f}, precision = {valid_precision:.4f}, recall = {valid_recall:.4f}, f1 = {valid_f1}")
+        with open('output/history/base.csv','a') as file:
+            file.write(time.strftime("%m-%d %H:%M")+","+f"valid,base,{epoch + 1:03d}/{n_epochs:03d},{valid_loss:.5f},{valid_acc:.4f},{valid_precision:.4f},{valid_recall:.4f},{valid_f1}" + "\n")
 
         t_loss_list.append(train_loss)
         t_acc_list.append(train_acc.cpu())
@@ -148,25 +152,29 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
         v_acc_list.append(valid_acc.cpu())
 
         if (epoch+1)%5 == 0:
-            torch.save(user_network.state_dict(), "output/model/user_network_{}_{}.pt".format(epoch+1, time.strftime("%m%d%H%M%S")))
-            torch.save(item_network.state_dict(), "output/model/item_network_{}_{}.pt".format(epoch+1, time.strftime("%m%d%H%M%S")))
-            torch.save(co_attention.state_dict(), "output/model/co_attention_{}_{}.pt".format(epoch+1, time.strftime("%m%d%H%M%S")))
+            torch.save(user_network.state_dict(), "output/model/base/user_network_{}_{}.pt".format(epoch+1, time.strftime("%m%d%H%M%S")))
+            torch.save(item_network.state_dict(), "output/model/base/item_network_{}_{}.pt".format(epoch+1, time.strftime("%m%d%H%M%S")))
+            torch.save(co_attention.state_dict(), "output/model/base/co_attention_{}_{}.pt".format(epoch+1, time.strftime("%m%d%H%M%S")))
             torch.save(fc_layer.state_dict(), f"output/model/fc_layer_{epoch+1}.pt")
 
     return t_loss_list, t_acc_list, v_loss_list, v_acc_list
 
 def draw_loss_curve(train_loss, valid_loss):
-    plt.plot(train_loss, color="blue", label="Train", marker='o')
-    plt.plot(valid_loss, color="red", label="Valid", marker='o')
+    plt.plot(train_loss, color="mediumblue", label="Train", marker='o')
+    plt.plot(valid_loss, color="cornflowerblue", label="Valid", marker='o')
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
     plt.legend(loc="upper right")
     plt.title("Base Loss Curve")
     plt.savefig('output/plot/base/loss_base_{}.png'.format(time.strftime("%m%d%H%M%S")))
-    plt.draw()
+    plt.show(block=False)
 
 def draw_acc_curve(train_acc, valid_acc):
-    plt.plot(train_acc, color="forestgreen", label="Train", marker='o')
-    plt.plot(valid_acc, color="gold", label="Valid", marker='o')
+    plt.plot(train_acc, color="deeppink", label="Train", marker='o')
+    plt.plot(valid_acc, color="pink", label="Valid", marker='o')
+    plt.xlabel("Epoch")
+    plt.ylabel("Acc")
     plt.legend(loc="upper right")
     plt.title("Base Acc Curve")
     plt.savefig('output/plot/base/acc_base_{}.png'.format(time.strftime("%m%d%H%M%S")))
-    plt.draw()
+    plt.show(block=False)
