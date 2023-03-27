@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import time
-import datetime
+from datetime import datetime
 from function.review_dataset import ReviewDataset, ReviewDataseStage1
 from model.hian import HianModel
 from model.co_attention import CoattentionNet
@@ -10,9 +10,9 @@ from model.fc_layer import FcLayer
 from model.hian_cl_stage1 import HianCollabStage1
 from model.hian_cl_stage2 import HianCollabStage2
 from torch.utils.data import DataLoader 
-from transformers import BertTokenizer, BertModel, BertConfig
 from function.train import train_model, draw_acc_curve, draw_loss_curve
-from function.train_collab import train_collab_model, draw_acc_curve, draw_loss_curve
+from function.train_stage1 import train_stage1_model, draw_acc_curve_stage1, draw_loss_curve_stage1
+from function.train_stage2 import train_stage2_model, draw_acc_curve_stage2, draw_loss_curve_stage2
 
                                                                    
 def main(**args):
@@ -75,7 +75,9 @@ def main(**args):
 
         #Stage2
         user_network_stage2 = HianCollabStage2(args).to(device)
+        user_network_1_stage2 = HianCollabStage2(args).to(device)
         item_network_stage2 = HianCollabStage2(args).to(device)
+        item_network_1_stage2 = HianCollabStage2(args).to(device)
         co_attention = CoattentionNet(args, args["co_attention_emb_dim"]).to(device)
         co_attention_1 = CoattentionNet(args, args["co_attention_emb_dim"]).to(device)
         co_attention_2 = CoattentionNet(args, args["co_attention_emb_dim"]).to(device)
@@ -96,11 +98,13 @@ def main(**args):
                               list(user_fc_layer_1_stage1.parameters()) +
                               list(user_fc_layer_2_stage1.parameters()) +
                               list(user_fc_layer_3_stage1.parameters()))
+                              
         item_params_stage1 = (list(item_network_stage1.parameters()) +
                               list(item_fc_layer_stage1.parameters()) +
                               list(item_fc_layer_1_stage1.parameters()) +
                               list(item_fc_layer_2_stage1.parameters()) +
                               list(item_fc_layer_3_stage1.parameters()))  
+        
         params_stage2 = (list(user_network_stage2.parameters()) + 
                          list(item_network_stage2.parameters()) +
                          list(co_attention.parameters()) + 
@@ -110,8 +114,7 @@ def main(**args):
                          list(fc_layer_stage2.parameters()) + 
                          list(fc_layer_1_stage2.parameters()) +
                          list(fc_layer_2_stage2.parameters()) + 
-                         list(fc_layer_3_stage2.parameters())
-                         )
+                         list(fc_layer_3_stage2.parameters()))
         
         user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=1e-3, weight_decay=1e-4)
         item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-3, weight_decay=1e-4)
@@ -119,19 +122,45 @@ def main(**args):
 
         # Training 
         start = time.time()
-        train_loss, train_acc, val_loss, val_acc = train_collab_model(
+        # Stage1 
+        (t_user_loss_list_stage1, t_user_acc_list_stage1, t_item_loss_list_stage1, t_item_acc_list_stage1,
+          v_user_loss_list_stage1, v_user_acc_list_stage1, v_item_loss_list_stage1, v_item_acc_list_stage1) = \
+        train_stage1_model(
             args,                                                           
-            [train_loader_stage1, train_loader],
-            [val_loader_stage1, val_loader],
-            [user_network_stage1, user_network_stage2],
-            [item_network_stage1, item_network_stage2], 
-            [co_attention, co_attention_1, co_attention_2, co_attention_3], 
+            train_loader_stage1,
+            val_loader_stage1,
+            user_network_stage1,
+            item_network_stage1, 
             [user_fc_layer_stage1, user_fc_layer_1_stage1, user_fc_layer_2_stage1, user_fc_layer_3_stage1],
             [item_fc_layer_stage1, item_fc_layer_1_stage1, item_fc_layer_2_stage1, item_fc_layer_3_stage1],
+            criterions=[user_criterion_stage1, item_criterion_stage1], 
+            models_params=[user_params_stage1, item_params_stage1], 
+            optimizers=[user_optimizer_stage1, item_optimizer_stage1])
+        
+        # Plot stage1 acc & loss
+        draw_acc_curve_stage1(t_user_acc_list_stage1, v_user_acc_list_stage1, target="User")
+        draw_acc_curve_stage1(t_item_acc_list_stage1, v_item_acc_list_stage1, target="Item")
+        draw_loss_curve_stage1(t_user_loss_list_stage1, v_user_loss_list_stage1, target="User")
+        draw_loss_curve_stage1(t_item_loss_list_stage1, v_item_loss_list_stage1, target="Item")
+
+        # Stage2
+        t_loss_stage2, t_accs_stage2, v_loss_stage2, v_accs_stage2 = \
+        train_stage2_model(
+            args,                                                           
+            train_loader,
+            val_loader,
+            [user_network_stage1, user_network_stage2, user_network_1_stage2],
+            [item_network_stage1, item_network_stage2, item_network_1_stage2], 
+            [co_attention, co_attention_1, co_attention_2, co_attention_3], 
             [fc_layer_stage2, fc_layer_1_stage2, fc_layer_2_stage2, fc_layer_3_stage2], 
-            criterions=[user_criterion_stage1, item_criterion_stage1, criterion_stage2], 
-            models_params=[user_params_stage1, item_params_stage1, params_stage2], 
-            optimizers=[user_optimizer_stage1, item_optimizer_stage1, optimizer_stage2])
+            criterion = criterion_stage2, 
+            models_param = params_stage2, 
+            optimizer = optimizer_stage2)
+        
+        # Plot stage2 acc & loss
+        draw_acc_curve_stage2(t_accs_stage2, v_accs_stage2)
+        draw_loss_curve_stage2(t_loss_stage2, v_loss_stage2)
+        
         end = time.time()
 
     
@@ -158,16 +187,15 @@ if __name__ == "__main__":
         "word_cnn_ksize" : 3,   # odd number 
         "sentence_cnn_ksize" : 3,   # odd number 
         "epoch" : 20,
-        "stage1_epoch" : 20,
-        "stage2_epoch" : 20,
         "batch_size": 32,
         "collab_learning": True,
-        "trade_off": 0.5, 
-        "bert_configuration" : BertConfig(),
-        "bert_model" : BertModel.from_pretrained('bert-base-uncased', output_hidden_states = True).to(device),
-        "bert_tokenizer" : BertTokenizer.from_pretrained('bert-base-uncased', use_fast=True)
+        "epoch_stage1" : 2,
+        "epoch_stage2" : 2,
+        "trade_off_stage1": 0.25, 
+        "trade_off_stage2": 0.25,
     }
 
     print("Device: ", device)
+    print("Collab: ", args["collab_learning"])
     main(**args)
 

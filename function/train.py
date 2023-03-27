@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 from sklearn.metrics import precision_score, recall_score, f1_score, ndcg_score
-import datetime
+import time 
 
-def train_model(args, train_loader, val_loader, user_network_model, item_network_model, co_attention_network, fc_layer,
+def train_model(args, train_loader, val_loader, user_network, item_network, co_attention, fc_layer,
                  *, criterion, models_params, optimizer):
     
     t_loss_list, t_acc_list, t_precision_list, t_recall_list, t_f1_list = [], [], [], [], []
@@ -15,9 +15,9 @@ def train_model(args, train_loader, val_loader, user_network_model, item_network
 
         n_epochs = args["epoch"]
 
-        user_network_model.train()
-        item_network_model.train()
-        co_attention_network.train()
+        user_network.train()
+        item_network.train()
+        co_attention.train()
         fc_layer.train()
 
         # These are used to record information in training.
@@ -31,9 +31,9 @@ def train_model(args, train_loader, val_loader, user_network_model, item_network
 
             # Exacute models
             user_review_emb, item_review_emb, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, labels = batch
-            user_logits = user_network_model(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
-            item_logits = item_network_model(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
-            weighted_user_logits,  weighted_item_logits = co_attention_network(user_logits, item_logits)
+            user_logits = user_network(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
+            item_logits = item_network(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
+            weighted_user_logits,  weighted_item_logits = co_attention(user_logits, item_logits)
             user_feature = torch.cat((weighted_user_logits, user_mf_emb.to(args["device"])), dim=1)
             item_feature = torch.cat((weighted_item_logits, item_mf_emb.to(args["device"])), dim=1)
             fc_input = torch.cat((user_feature, item_feature), dim=1)
@@ -83,9 +83,9 @@ def train_model(args, train_loader, val_loader, user_network_model, item_network
 
         # ---------- Validation ----------
         # Make sure the model is in eval mode so that some modules like dropout are disabled and work normally.
-        user_network_model.eval()
-        item_network_model.eval()
-        co_attention_network.eval()
+        user_network.eval()
+        item_network.eval()
+        co_attention.eval()
         fc_layer.eval()
 
         # These are used to record information in validation.
@@ -103,9 +103,9 @@ def train_model(args, train_loader, val_loader, user_network_model, item_network
 
                 # Exacute models 
                 user_review_emb, item_review_emb, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, labels = batch
-                user_logits = user_network_model(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
-                item_logits = item_network_model(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
-                weighted_user_logits,  weighted_item_logits = co_attention_network(user_logits.to(args["device"]), item_logits.to(args["device"]))
+                user_logits = user_network(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
+                item_logits = item_network(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
+                weighted_user_logits,  weighted_item_logits = co_attention(user_logits.to(args["device"]), item_logits.to(args["device"]))
                 user_feature = torch.cat((weighted_user_logits.to(args["device"]), user_mf_emb.to(args["device"])), dim=1)
                 item_feature = torch.cat((weighted_item_logits.to(args["device"]), item_mf_emb.to(args["device"])), dim=1)
                 fc_input = torch.cat((user_feature, item_feature), dim=1)
@@ -148,25 +148,25 @@ def train_model(args, train_loader, val_loader, user_network_model, item_network
         v_acc_list.append(valid_acc.cpu())
 
         if (epoch+1)%5 == 0:
-            torch.save(user_network_model.state_dict(), f"output/model/user_network_{epoch+1}_{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.pt")
-            torch.save(item_network_model.state_dict(), f"output/model/item_network_{epoch+1}_{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.pt")
-            torch.save(co_attention_network.state_dict(), f"output/model/co_attention_{epoch+1}_{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.pt")
+            torch.save(user_network.state_dict(), "output/model/user_network_{}_{}.pt".format(epoch+1, time.strftime("%m%d%H%M%S")))
+            torch.save(item_network.state_dict(), "output/model/item_network_{}_{}.pt".format(epoch+1, time.strftime("%m%d%H%M%S")))
+            torch.save(co_attention.state_dict(), "output/model/co_attention_{}_{}.pt".format(epoch+1, time.strftime("%m%d%H%M%S")))
             torch.save(fc_layer.state_dict(), f"output/model/fc_layer_{epoch+1}.pt")
 
     return t_loss_list, t_acc_list, v_loss_list, v_acc_list
 
 def draw_loss_curve(train_loss, valid_loss):
-    plt.plot(train_loss, color="blue", label="Train")
-    plt.plot(valid_loss, color="red", label="Valid")
+    plt.plot(train_loss, color="blue", label="Train", marker='o')
+    plt.plot(valid_loss, color="red", label="Valid", marker='o')
     plt.legend(loc="upper right")
-    plt.title("Loss Curve")
-    plt.savefig(f'output/plot/loss_plot_{datetime.datetime.now()}.png')
-    plt.show()
+    plt.title("Base Loss Curve")
+    plt.savefig('output/plot/base/loss_base_{}.png'.format(time.strftime("%m%d%H%M%S")))
+    plt.draw()
 
-def draw_acc_curve(train_loss, valid_loss):
-    plt.plot(train_loss, color="blue", label="Train")
-    plt.plot(valid_loss, color="red", label="Valid")
+def draw_acc_curve(train_acc, valid_acc):
+    plt.plot(train_acc, color="forestgreen", label="Train", marker='o')
+    plt.plot(valid_acc, color="gold", label="Valid", marker='o')
     plt.legend(loc="upper right")
-    plt.title("Acc Curve")
-    plt.savefig(f'output/plot/acc_plot_{datetime.datetime.now()}.png')
-    plt.show()
+    plt.title("Base Acc Curve")
+    plt.savefig('output/plot/base/acc_base_{}.png'.format(time.strftime("%m%d%H%M%S")))
+    plt.draw()

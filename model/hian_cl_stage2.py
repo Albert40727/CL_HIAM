@@ -9,10 +9,8 @@ class HianCollabStage2(HianModel):
         # Review-Level Network
         self.review_attention_1 = nn.MultiheadAttention(256, num_heads=1)
 
-    def forward(self, x):
-
-        batch_size, num_review, num_words, word_dim = x.shape
-
+    def forward(self, x, batch_size):
+        
         #Review-Level Network
         x_rf = self.review_level_network(x, self.review_attention, batch_size=batch_size)
         x_rf_1 = self.review_level_network(x, self.review_attention_1, batch_size=batch_size)

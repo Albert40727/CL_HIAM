@@ -2,49 +2,48 @@ import datetime
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
+import time
 from tqdm import tqdm
 from sklearn.metrics import precision_score, recall_score, f1_score
 
-def train_collab_model(args, 
-                       train_loaders, 
-                       val_loaders,                     
-                       user_networks, 
-                       item_networks,
-                       co_attentions, 
+def train_stage1_model(args, 
+                       train_loader, 
+                       val_loader,                     
+                       user_network, 
+                       item_network,
                        user_fc_layers_stage1,
                        item_fc_layers_stage1,
-                       fc_layers_stage2, 
                        *, 
                        criterions,
                        models_params, 
                        optimizers):
     
+    # For plotting usage
     t_user_loss_list_stage1, t_user_acc_list_stage1, t_item_loss_list_stage1, t_item_acc_list_stage1 = [], [], [], []
     v_user_loss_list_stage1, v_user_acc_list_stage1, v_item_loss_list_stage1, v_item_acc_list_stage1 = [], [], [], []
-    t_loss_list_stage2, t_acc_list_stage2 = [], []
-    v_loss_list_stage2, v_acc_list_stage2 = [], []
 
+    print("-------------------------- STAGE1 START --------------------------")
     # Stage 1 training
-    for epoch in range(args["stage1_epoch"]):
+    for epoch in range(args["epoch_stage1"]):
 
-        n_epochs = args["stage1_epoch"]
+        n_epochs = args["epoch_stage1"]
         
-        user_networks[0].train()
-        item_networks[0].train()
+        user_network.train()
+        item_network.train()
         for ufc, ifc in zip(user_fc_layers_stage1, item_fc_layers_stage1):
             ufc.train()
             ifc.train()
-
+        
         # These are used to record information in training.
         user_train_loss_stage1, user_train_accs_stage1, user_train_precisions_stage1, user_train_recalls_stage1, user_train_f1s_stage1 = [], [], [], [], []
         item_train_loss_stage1, item_train_accs_stage1, item_train_precisions_stage1, item_train_recalls_stage1, item_train_f1s_stage1 = [], [], [], [], []
 
-        for batch in tqdm(train_loaders[0]):
+        for batch in tqdm(train_loader):
             # Exacute models
             user_review_emb, item_review_emb, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, user_labels, item_labels = batch
             loss, acc, precision, recall, f1 = batch_train_stage1(args, user_review_emb, user_lda_groups, user_labels,
                                                                   target = "user",
-                                                                  network = user_networks[0], 
+                                                                  network = user_network, 
                                                                   fc_layers = user_fc_layers_stage1,
                                                                   criterion = criterions[0], 
                                                                   models_params = models_params[0], 
@@ -60,7 +59,7 @@ def train_collab_model(args,
             loss, acc, precision, recall, f1 = \
             batch_train_stage1(args, item_review_emb, item_lda_groups, item_labels,
                                target = "item",
-                               network = item_networks[0],
+                               network = item_network,
                                fc_layers = item_fc_layers_stage1, 
                                criterion = criterions[1], 
                                models_params = models_params[1], 
@@ -87,19 +86,19 @@ def train_collab_model(args,
         
         item_train_loss, item_train_acc, item_train_precision, item_train_recall, item_train_f1 = \
         epoch_info(item_train_loss_stage1, 
-                         item_train_accs_stage1, 
-                         item_train_precisions_stage1,
-                         item_train_recalls_stage1,
-                         item_train_f1s_stage1,
-                         mode = "Train",
-                         target="item",
-                         epoch = epoch,
-                         n_epochs = n_epochs)
+                   item_train_accs_stage1, 
+                   item_train_precisions_stage1,
+                   item_train_recalls_stage1,
+                   item_train_f1s_stage1,
+                   mode = "Train",
+                   target="item",
+                   epoch = epoch,
+                   n_epochs = n_epochs)
 
         # ---------- Validation ----------
         # Make sure the model is in eval mode so that some modules like dropout are disabled and work normally.
-        user_networks[0].eval()
-        item_networks[0].eval()
+        user_network.eval()
+        item_network.eval()
         for ufc, ifc in zip(user_fc_layers_stage1, item_fc_layers_stage1):
             ufc.eval()
             ifc.eval()
@@ -108,33 +107,35 @@ def train_collab_model(args,
         user_val_loss_stage1, user_val_accs_stage1, user_val_precisions_stage1, user_val_recalls_stage1, user_val_f1s_stage1 = [], [], [], [], []
         item_val_loss_stage1, item_val_accs_stage1, item_val_precisions_stage1, item_val_recalls_stage1, item_val_f1s_stage1 = [], [], [], [], []
         # Iterate the validation set by batches.
-        for batch in tqdm(val_loaders[0]):
+        for batch in tqdm(val_loader):
 
             # We don't need gradient in validation.
             # Using torch.no_grad() accelerates the forward process.
             with torch.no_grad():
-                user_review_emb, item_review_emb, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, labels = batch
+                user_review_emb, item_review_emb, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, user_labels, item_labels = batch
                 
-                loss, acc, precision, recall, f1 = batch_val_stage1(args, user_review_emb, user_lda_groups, labels,
-                                                                    target = "user",
-                                                                    network = user_networks[0],
-                                                                    fc_layers = user_fc_layers_stage1, 
-                                                                    criterion = criterions[0])
+                loss, acc, precision, recall, f1 = \
+                batch_val_stage1(args, user_review_emb, user_lda_groups, user_labels,
+                                 target = "user",
+                                 network = user_network,
+                                 fc_layers = user_fc_layers_stage1, 
+                                 criterion = criterions[0])
                 # Record the usernetwork information.
-                user_val_loss_stage1.append(loss.item())
+                user_val_loss_stage1.append(loss)
                 user_val_accs_stage1.append(acc)
                 user_val_precisions_stage1.append(precision)
                 user_val_recalls_stage1.append(recall)
                 user_val_f1s_stage1.append(f1)
 
-                loss, acc, precision, recall, f1 = batch_val_stage1(args, user_review_emb, user_lda_groups, labels,
-                                                    target = "user",
-                                                    network = user_networks[0],
-                                                    fc_layers = user_fc_layers_stage1, 
-                                                    criterion = criterions[0])
+                loss, acc, precision, recall, f1 = \
+                batch_val_stage1(args, item_review_emb, item_lda_groups, item_labels,
+                                 target = "item",
+                                 network = item_network,
+                                 fc_layers = item_fc_layers_stage1, 
+                                 criterion = criterions[1])
                 
                 # Record the itemnetwork information.
-                item_val_loss_stage1.append(loss.item())
+                item_val_loss_stage1.append(loss)
                 item_val_accs_stage1.append(acc)
                 item_val_precisions_stage1.append(precision)
                 item_val_recalls_stage1.append(recall)
@@ -151,12 +152,13 @@ def train_collab_model(args,
                    target = "user",
                    epoch = epoch,
                    n_epochs = n_epochs)
+        
         item_val_loss, item_val_acc, item_val_precision, item_val_recall, item_val_f1 = \
-        epoch_info(item_train_loss_stage1, 
-                   item_train_accs_stage1, 
-                   item_train_precisions_stage1,
-                   item_train_recalls_stage1,
-                   item_train_f1s_stage1,
+        epoch_info(item_val_loss_stage1, 
+                   item_val_accs_stage1, 
+                   item_val_precisions_stage1,
+                   item_val_recalls_stage1,
+                   item_val_f1s_stage1,
                    mode = "Valid",
                    target="item",
                    epoch = epoch,
@@ -166,10 +168,11 @@ def train_collab_model(args,
         t_user_acc_list_stage1.append(user_train_acc.cpu())
         t_item_loss_list_stage1.append(item_train_loss)
         t_item_acc_list_stage1.append(item_train_acc.cpu())
+
         v_user_loss_list_stage1.append(user_val_loss)
         v_user_acc_list_stage1.append(user_val_acc.cpu())
-        v_item_loss_list_stage1.append(user_val_loss)
-        v_item_acc_list_stage1.append(user_val_acc.cpu())
+        v_item_loss_list_stage1.append(item_val_loss)
+        v_item_acc_list_stage1.append(item_val_acc.cpu())
 
         # if (epoch+1)%5 == 0:
         #     torch.save(user_network.state_dict(), f"output/model/user_network_{epoch+1}_{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.pt")
@@ -177,19 +180,21 @@ def train_collab_model(args,
         #     torch.save(co_attentions.state_dict(), f"output/model/co_attentions_{epoch+1}_{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.pt")
         #     torch.save(fc_layers.state_dict(), f"output/model/fc_layers_{epoch+1}.pt")
 
-    return t_user_loss_list_stage1, t_user_acc_list_stage1, t_item_loss_list_stage1, v_user_loss_list_stage1, v_user_acc_list_stage1, v_item_loss_list_stage1, v_item_acc_list_stage1
+    print("-------------------------- STAGE1 END --------------------------")
 
-def batch_train_stage1(args, review_emb, lda_groups, labels, 
-                       *, 
+    return t_user_loss_list_stage1, t_user_acc_list_stage1, t_item_loss_list_stage1, t_item_acc_list_stage1,\
+           v_user_loss_list_stage1, v_user_acc_list_stage1, v_item_loss_list_stage1, v_item_acc_list_stage1
+
+def batch_train_stage1(args, review_emb, lda_groups, labels, *, 
                        target, network, fc_layers, criterion, models_params, optimizers):
 
     arv, arv_1, arv_2, arv_3 = network(review_emb.to(args["device"]), lda_groups.to(args["device"]))
     logits, soft_label_1, soft_label_2, soft_label_3 = fc_layers[0](arv), fc_layers[1](arv_1), fc_layers[2](arv_2), fc_layers[3](arv_3)
 
-    loss = ((1-args["trade_off"])*criterion(logits.reshape(labels.size()), labels.to(args["device"]).float())
-             + args["trade_off"]*(criterion(logits, soft_label_1) + 
-                                  criterion(logits, soft_label_2) + 
-                                  criterion(logits, soft_label_3)))
+    loss = ((1-args["trade_off_stage1"])*criterion(logits.reshape(labels.size()), labels.to(args["device"]).float())
+             + args["trade_off_stage1"]*(criterion(logits, soft_label_1) + 
+                                         criterion(logits, soft_label_2) + 
+                                         criterion(logits, soft_label_3)))
             
     # Gradients stored in the parameters in the previous step should be cleared out first.
     optimizers.zero_grad()
@@ -206,16 +211,13 @@ def batch_train_stage1(args, review_emb, lda_groups, labels,
     # Output after sigmoid is greater than 0.5 will be considered as 1, else 0.
     result_logits = torch.where(logits > 0.5, 1, 0).squeeze(dim=-1)
     labels = labels.to(args["device"]).reshape(result_logits.size())
-    if target == "item":
-        print(result_logits, labels)
 
     # Compute the informations for current batch.
     acc = (result_logits == labels).float().mean()
     precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
     recall = recall_score(labels.cpu(), result_logits.cpu())
     f1 = f1_score(labels.cpu(), result_logits.cpu())
-    if target == "item":
-        print(acc, precision, recall, f1)
+
     # ndcg = ndcg_score(labels.unsqueeze(dim=-1).cpu(), result_logits.unsqueeze(dim=-1).cpu())
 
     return loss.item(), acc, precision, recall, f1
@@ -255,18 +257,18 @@ def epoch_info(loss, accs, precisions, recalls, f1s, *, mode, target, epoch, n_e
     
     return mean_loss, mean_acc, mean_precision, mean_recall, mean_f1
 
-def draw_loss_curve(train_loss, valid_loss):
-    plt.plot(train_loss, color="blue", label="Train")
-    plt.plot(valid_loss, color="red", label="Valid")
+def draw_loss_curve_stage1(train_loss, valid_loss, *, target):
+    plt.plot(train_loss, color="blue", label="Train", marker='o')
+    plt.plot(valid_loss, color="red", label="Valid", marker='o')
     plt.legend(loc="upper right")
-    plt.title("Loss Curve")
-    plt.savefig(f'output/plot/loss_plot_{datetime.datetime.now()}.png')
-    plt.show()
+    plt.title(f"Stage1 {target} Loss Curve")
+    plt.savefig('output/plot/collab/loss_{}_stage1_{}.png'.format(target, time.strftime("%m%d%H%M%S")))
+    plt.draw()
 
-def draw_acc_curve(train_loss, valid_loss):
-    plt.plot(train_loss, color="blue", label="Train")
-    plt.plot(valid_loss, color="red", label="Valid")
+def draw_acc_curve_stage1(train_acc, valid_acc, *, target):
+    plt.plot(train_acc, color="forestgreen", label="Train", marker='o')
+    plt.plot(valid_acc, color="gold", label="Valid", marker='o')
     plt.legend(loc="upper right")
-    plt.title("Acc Curve")
-    plt.savefig(f'output/plot/acc_plot_{datetime.datetime.now()}.png')
-    plt.show()
+    plt.title(f"Stage1 {target} Acc Curve")
+    plt.savefig('output/plot/collab/acc_{}_stage1_{}.png'.format(target, time.strftime("%m%d%H%M%S")))
+    plt.draw()
