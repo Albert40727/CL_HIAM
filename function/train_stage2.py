@@ -27,15 +27,16 @@ def train_stage2_model(args,
 
         n_epochs = args["epoch_stage2"]
 
-        # Frozen stage1 models params
+        # Frozen stage1 models
         user_networks[0].eval()
         item_networks[0].eval()
 
-        # Train stage2 models
+        # Set stage2 models to train mode
         user_networks[1].train()
         item_networks[1].train()
-        for coa, fc in zip(co_attentions, fc_layers_stage2):
+        for coa in co_attentions:
             coa.train()
+        for fc in fc_layers_stage2:
             fc.train()
 
         # These are used to record information in training.
@@ -44,6 +45,8 @@ def train_stage2_model(args,
         train_precisions = []
         train_recalls = []
         train_f1s = []
+
+        print("TS2: ", co_attentions[0].training , co_attentions[1].training, fc_layers_stage2[0].training, fc_layers_stage2[1].training)
 
         for batch in tqdm(train_loader):
 
@@ -128,8 +131,9 @@ def train_stage2_model(args,
         # Make sure the model is in eval mode so that some modules like dropout are disabled and work normally.
         user_networks[1].eval()
         item_networks[1].eval()
-        for coa, fc in zip(co_attentions, fc_layers_stage2):
+        for coa in co_attentions:
             coa.eval()
+        for fc in fc_layers_stage2:
             fc.eval()
 
         # These are used to record information in validation.
@@ -138,6 +142,9 @@ def train_stage2_model(args,
         valid_precisions = []
         valid_recalls = []
         valid_f1s = []
+
+        print("VS2: ", co_attentions[0].training , co_attentions[1].training, fc_layers_stage2[0].training, fc_layers_stage2[1].training)
+
         # Iterate the validation set by batches.
         for batch in tqdm(val_loader):
 
@@ -215,7 +222,7 @@ def draw_loss_curve_stage2(train_loss, valid_loss):
     plt.legend(loc="upper right")
     plt.title("Stage2 Loss Curve")
     plt.savefig('output/plot/collab/loss_stage2_{}.png'.format(time.strftime("%m%d%H%M%S")))
-    plt.show(block=False)
+    plt.show()
 
 def draw_acc_curve_stage2(train_acc, valid_acc):
     plt.plot(train_acc, color="deeppink", label="Train", marker='o')
@@ -225,4 +232,4 @@ def draw_acc_curve_stage2(train_acc, valid_acc):
     plt.legend(loc="upper right")
     plt.title("Stage2 Acc Curve")
     plt.savefig('output/plot/collab/acc_stage2_{}.png'.format(time.strftime("%m%d%H%M%S")))
-    plt.show(block=False)
+    plt.show()

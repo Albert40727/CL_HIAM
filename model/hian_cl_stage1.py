@@ -4,41 +4,6 @@ import torch.nn.functional as F
 import torch
 
 class HianCollabStage1(HianModel):
-    """
-    B: Batch, N: User/Item max review num, W: Word, S:Sentence, A:Aspect, D:Output Dimension 
-            input:  x: 32, N, 250, 768 
-                            |reshape
-                            v
-                    x: 32*N, 250, 768 (B, N, W*S, D)
-                            |
-                            |w_cnn_network + attention
-                            v
-                    x: 32*N, 10, D  (B, N, S, D)
-                            |
-                            |s_cnn_network + attention
-                            v 
-                    x: 32*N, 10, D  (B, N, S, D)
-                            |
-                            |(LDA) + attention
-                            v             
-                    x: 32*N, 6, D   (B, N, A, D)
-                            |
-                            |aspect attention weighted sum
-                            v
-                    x: 32, N, D  (B, N, D)
-                            |
-                            |fc_layer
-                            v  
-                        x: 32, N, 1          
-    """
-    """
-    (Some emb might be permuted during training due to the Conv1d input format)
-    Word Emb:               torch.Size([50, 250, 768])
-    Sentence Emb:           torch.Size([50, 10, 512])
-    Weighted Sentence Emb:  torch.Size([50, 10, 256])
-    Aspect Emb:             torch.Size([50, 6, 256])
-    Aspect Review Emb:      torch.Size([50, 256])
-    """
     def __init__(self, args):
         super().__init__(args)
 
@@ -69,7 +34,7 @@ class HianCollabStage1(HianModel):
 
     def fc_layer(self, x, fc1, fc2, dropout):
         x = fc1(x)
-        x = F.relu(x)
+        x = F.tanh(x)
         x = dropout(x)
         x = fc2(x)
         output = torch.sigmoid(x)

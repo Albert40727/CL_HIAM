@@ -42,7 +42,6 @@ def main(**args):
         optimizer = torch.optim.Adam(params, lr=1e-3, weight_decay=1e-4)
 
         # Training 
-        start = time.time()
         train_loss, train_acc, val_loss, val_acc = train_model(args, 
                                                                train_loader, 
                                                                val_loader, 
@@ -53,14 +52,13 @@ def main(**args):
                                                                criterion=criterion, 
                                                                models_params=params, 
                                                                optimizer=optimizer)
-        end = time.time()
-        print("模型總訓練時間：", str(datetime.timedelta(seconds=int(end - start))))
 
         # Plot loss & acc curves
         draw_loss_curve(train_loss, val_loss)
         draw_acc_curve(train_acc, val_acc)
 
     elif args["collab_learning"]:
+
         # Init model
         # Stage 1
         user_network_stage1 = HianCollabStage1(args).to(device)
@@ -122,7 +120,6 @@ def main(**args):
         optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-2, weight_decay=1e-3)
 
         # Training 
-        start = time.time()
         # Stage1 
         (t_user_loss_stage1, t_user_acc_stage1, t_item_loss_stage1, t_item_acc_stage1,
           v_user_loss_stage1, v_user_acc_stage1, v_item_loss_stage1, v_item_acc_stage1) = \
@@ -160,8 +157,6 @@ def main(**args):
         draw_loss_curve_stage2(t_loss_stage2, v_loss_stage2)
         draw_acc_curve_stage2(t_acc_stage2, v_acc_stage2)
         
-        end = time.time()
-        print("模型總訓練時間：", str(datetime.timedelta(seconds=int(end - start))))
 
     
 if __name__ == "__main__":
@@ -189,8 +184,8 @@ if __name__ == "__main__":
         "epoch" : 20,
         "batch_size": 32,
         "collab_learning": True,
-        "epoch_stage1" : 2,
-        "epoch_stage2" : 2,
+        "epoch_stage1" : 3,
+        "epoch_stage2" : 3,
         "trade_off_stage1": 0.25, 
         "trade_off_stage2": 0.25,
     }

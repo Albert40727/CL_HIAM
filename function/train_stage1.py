@@ -105,6 +105,7 @@ def train_stage1_model(args,
         # These are used to record information in validation.
         user_val_loss_stage1, user_val_accs_stage1, user_val_precisions_stage1, user_val_recalls_stage1, user_val_f1s_stage1 = [], [], [], [], []
         item_val_loss_stage1, item_val_accs_stage1, item_val_precisions_stage1, item_val_recalls_stage1, item_val_f1s_stage1 = [], [], [], [], []
+        
         # Iterate the validation set by batches.
         for batch in tqdm(val_loader):
 
@@ -222,8 +223,7 @@ def batch_train_stage1(args, review_emb, lda_groups, labels, *,
     return loss.item(), acc, precision, recall, f1
 
 def batch_val_stage1(args, review_emb, lda_groups, labels, 
-                     *, 
-                     target, network, fc_layers, criterion):
+                     *, target, network, fc_layers, criterion):
     # Exacute models 
     arv, _, _, _ = network(review_emb.to(args["device"]), lda_groups.to(args["device"]))
     logits = fc_layers[0](arv)
