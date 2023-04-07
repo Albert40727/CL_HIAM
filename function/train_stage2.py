@@ -46,8 +46,6 @@ def train_stage2_model(args,
         train_recalls = []
         train_f1s = []
 
-        print("TS2: ", co_attentions[0].training , co_attentions[1].training, fc_layers_stage2[0].training, fc_layers_stage2[1].training)
-
         for batch in tqdm(train_loader):
 
             # Exacute models

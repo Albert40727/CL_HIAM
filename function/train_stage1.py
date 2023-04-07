@@ -40,15 +40,16 @@ def train_stage1_model(args,
         for batch in tqdm(train_loader):
             # Exacute models
             user_review_emb, item_review_emb, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, user_labels, item_labels = batch
-            loss, acc, precision, recall, f1 = batch_train_stage1(args, user_review_emb, user_lda_groups, user_labels,
-                                                                  target = "user",
-                                                                  network = user_network, 
-                                                                  fc_layers = user_fc_layers_stage1,
-                                                                  criterion = criterions[0], 
-                                                                  models_params = models_params[0], 
-                                                                  optimizers = optimizers[0])
-            
-            # Record the usernetwork information.
+            loss, acc, precision, recall, f1 = \
+            batch_train_stage1(args, user_review_emb, user_lda_groups, user_labels,
+                               target = "user",
+                               network = user_network, 
+                               fc_layers = user_fc_layers_stage1,
+                               criterion = criterions[0], 
+                               models_params = models_params[0], 
+                               optimizers = optimizers[0])
+        
+            # Record the user-network information.
             user_train_loss_stage1.append(loss)
             user_train_accs_stage1.append(acc)
             user_train_precisions_stage1.append(precision)
@@ -64,7 +65,7 @@ def train_stage1_model(args,
                                models_params = models_params[1], 
                                optimizers = optimizers[1])
             
-            # Record the itemnetwork information.
+            # Record the item-network information.
             item_train_loss_stage1.append(loss)
             item_train_accs_stage1.append(acc)
             item_train_precisions_stage1.append(precision)
@@ -209,13 +210,16 @@ def batch_train_stage1(args, review_emb, lda_groups, labels, *,
     optimizers.step()
 
     # Output after sigmoid is greater than 0.5 will be considered as 1, else 0.
-    result_logits = torch.where(logits > 0.5, 1, 0).squeeze(dim=-1)
+    result_logits = torch.where(logits > 0.82, 1, 0).squeeze(dim=-1)
     labels = labels.to(args["device"]).reshape(result_logits.size())
+
+    # rate = sum(result_logits==labels)/sum(labels)
+    # print(f"loss:{loss:}", f"result logit: {sum(result_logits)}", f"labels: {sum(labels)}", f"acc: {rate:.2f}")
 
     # Compute the informations for current batch.
     acc = (result_logits == labels).float().mean()
     precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
-    recall = recall_score(labels.cpu(), result_logits.cpu())
+    recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0)
     f1 = f1_score(labels.cpu(), result_logits.cpu())
 
     # ndcg = ndcg_score(labels.unsqueeze(dim=-1).cpu(), result_logits.unsqueeze(dim=-1).cpu())

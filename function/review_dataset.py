@@ -89,7 +89,7 @@ class ReviewDataseStage1(ReviewDataset):
 
         # Label for stage1 is different
         user_y = torch.from_numpy(np.array(user_review_data["Like"].tolist()))
-        item_y = torch.from_numpy(np.array(user_review_data["Like"].tolist()))
+        item_y = torch.from_numpy(np.array(item_review_data["Like"].tolist()))
         pad_user_y = torch.zeros(self.args["max_review_user"])
         pad_item_y = torch.zeros(self.args["max_review_item"])
 
@@ -124,8 +124,8 @@ class ReviewDataseStage1(ReviewDataset):
         else:
             pad_item_y[:item_y.size(0)] = item_y
 
-        user_mf_emb =  torch.from_numpy(self.user_mf_df[self.user_mf_df["UserID"]==userId]["MF_emb"].values[0])
-        item_mf_emb =  torch.from_numpy(self.item_mf_df[self.item_mf_df["AppID"]==itemId]["MF_emb"].values[0])
+        user_mf_emb = torch.from_numpy(self.user_mf_df[self.user_mf_df["UserID"]==userId]["MF_emb"].values[0])
+        item_mf_emb = torch.from_numpy(self.item_mf_df[self.item_mf_df["AppID"]==itemId]["MF_emb"].values[0])
 
         return pad_user_emb, pad_item_emb, pad_user_lda, pad_item_lda, user_mf_emb, item_mf_emb, pad_user_y, pad_item_y
 

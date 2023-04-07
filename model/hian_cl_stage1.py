@@ -1,4 +1,5 @@
 from .hian import HianModel
+from .bp_gate import BackPropagationGate
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
@@ -47,11 +48,14 @@ class HianCollabStage1(HianModel):
 
         # Word-Level Network
         x_s = self.word_level_network(x, self.word_cnn_network, self.word_attention)
+        x_s = BackPropagationGate.apply(x_s)
 
         # Sentence-Level Network
         x_as = self.sentence_level_network(x_s, self.sentence_cnn_network, self.sentence_attention)
         x_as_1 = self.sentence_level_network(x_s, self.sentence_cnn_network_1, self.sentence_attention_1)
-
+        x_as = BackPropagationGate.apply(x_as)
+        x_as_1 = BackPropagationGate.apply(x_as_1)
+        
         # Aspect-Level Network
         x_ar = self.aspect_level_network(x_as, lda_groups, self.aspect_attention)
         x_ar_1 = self.aspect_level_network(x_as, lda_groups, self.aspect_attention_1)

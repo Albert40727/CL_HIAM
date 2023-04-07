@@ -1,15 +1,13 @@
 import torch
 import torch.nn as nn
-import time
-from datetime import datetime
-from function.review_dataset import ReviewDataset, ReviewDataseStage1
 from model.hian import HianModel
-from model.co_attention import CoattentionNet
-from model.fc_layer_stage1 import FcLayerStage1
 from model.fc_layer import FcLayer
+from model.fc_layer_stage1 import FcLayerStage1
+from model.co_attention import CoattentionNet
 from model.hian_cl_stage1 import HianCollabStage1
 from model.hian_cl_stage2 import HianCollabStage2
-from torch.utils.data import DataLoader 
+from torch.utils.data import DataLoader
+from function.review_dataset import ReviewDataset, ReviewDataseStage1
 from function.train import train_model, draw_acc_curve, draw_loss_curve
 from function.train_stage1 import train_stage1_model, draw_acc_curve_stage1, draw_loss_curve_stage1
 from function.train_stage2 import train_stage2_model, draw_acc_curve_stage2, draw_loss_curve_stage2
@@ -37,28 +35,28 @@ def main(**args):
         fc_layer = FcLayer(args).to(device)
 
         # Loss criteria
-        criterion = nn.CrossEntropyLoss()
+        criterion = nn.BCELoss(reduction='sum')
         params = list(user_network_model.parameters()) + list(item_network_model.parameters()) + list(co_attention.parameters()) + list(fc_layer.parameters())
         optimizer = torch.optim.Adam(params, lr=1e-3, weight_decay=1e-4)
 
         # Training 
-        train_loss, train_acc, val_loss, val_acc = train_model(args, 
-                                                               train_loader, 
-                                                               val_loader, 
-                                                               user_network_model, 
-                                                               item_network_model, 
-                                                               co_attention, 
-                                                               fc_layer, 
-                                                               criterion=criterion, 
-                                                               models_params=params, 
-                                                               optimizer=optimizer)
-
+        train_loss, train_acc, val_loss, val_acc = \
+            train_model(args, 
+                        train_loader, 
+                        val_loader, 
+                        user_network_model, 
+                        item_network_model, 
+                        co_attention, 
+                        fc_layer, 
+                        criterion=criterion, 
+                        models_params=params, 
+                        optimizer=optimizer)
+        
         # Plot loss & acc curves
         draw_loss_curve(train_loss, val_loss)
         draw_acc_curve(train_acc, val_acc)
 
     elif args["collab_learning"]:
-
         # Init model
         # Stage 1
         user_network_stage1 = HianCollabStage1(args).to(device)
@@ -87,9 +85,9 @@ def main(**args):
         fc_layer_3_stage2 = FcLayer(args).to(device)
 
         # Loss criteria
-        user_criterion_stage1 = nn.CrossEntropyLoss()
-        item_criterion_stage1 = nn.CrossEntropyLoss()
-        criterion_stage2 = nn.CrossEntropyLoss()
+        user_criterion_stage1 = nn.BCELoss(reduction='sum')
+        item_criterion_stage1 = nn.BCELoss(reduction='sum')
+        criterion_stage2 = nn.BCELoss(reduction='sum')
 
         # Parameters
         user_params_stage1 = (list(user_network_stage1.parameters()) + 
@@ -102,7 +100,7 @@ def main(**args):
                               list(item_fc_layer_stage1.parameters()) +
                               list(item_fc_layer_1_stage1.parameters()) +
                               list(item_fc_layer_2_stage1.parameters()) +
-                              list(item_fc_layer_3_stage1.parameters()))  
+                              list(item_fc_layer_3_stage1.parameters()))
         
         params_stage2 = (list(user_network_stage2.parameters()) + 
                          list(item_network_stage2.parameters()) +
@@ -115,9 +113,9 @@ def main(**args):
                          list(fc_layer_2_stage2.parameters()) + 
                          list(fc_layer_3_stage2.parameters()))
         
-        user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=1e-2, weight_decay=1e-3)
-        item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-2, weight_decay=1e-3)
-        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-2, weight_decay=1e-3)
+        user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=5e-4, weight_decay=1e-5)
+        item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-3, weight_decay=1e-4)
+        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-3, weight_decay=1e-4)
 
         # Training 
         # Stage1 
@@ -184,13 +182,15 @@ if __name__ == "__main__":
         "epoch" : 20,
         "batch_size": 32,
         "collab_learning": True,
-        "epoch_stage1" : 3,
-        "epoch_stage2" : 3,
-        "trade_off_stage1": 0.25, 
-        "trade_off_stage2": 0.25,
+        "epoch_stage1" : 40,
+        "epoch_stage2" : 40,
+        "trade_off_stage1": 0.5, 
+        "trade_off_stage2": 0.5,
     }
 
     print("Device: ", device)
     print("Collab: ", args["collab_learning"])
+    print("Stage1 Epochs: ", args["epoch_stage1"])
+    print("Stage2 Epochs: ", args["epoch_stage2"])
     main(**args)
 
