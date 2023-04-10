@@ -134,6 +134,8 @@ def main(**args):
             'item_network_stage1': item_network_stage1.state_dict(),
             'user_fc_layer_stage1' : user_fc_layer_stage1.state_dict(),
             'item_fc_layer_stage1' : item_fc_layer_stage1.state_dict(),
+            'user_optimizer_stage1' : user_optimizer_stage1.state_dict(),
+            'item_optimizer_stage1' :  item_optimizer_stage1.state_dict(),
             }, PATH)
 
         # Stage2
@@ -160,8 +162,6 @@ def main(**args):
             'item_review_network' : item_review_network.state_dict(),
             'co_attention_stage2' : co_attentions.state_dict(),
             'fc_layer_stage2' : fc_layers_stage2.state_dict(),
-            'user_optimizer_stage1' : user_optimizer_stage1.state_dict(),
-            'user_optimizer_stage1' :  item_optimizer_stage1.state_dict(),
             'optimizer_stage2': optimizer_stage2.state_dict(),
             }, PATH)
         
