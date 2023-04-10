@@ -60,19 +60,19 @@ class HianModel(nn.Module):
         # Sentence-Level Network
         self.sent_pad_size = int((self.args["sentence_cnn_ksize"]-1)/2)
         self.sentence_cnn_network = nn.Sequential(
-            nn.Conv1d(512, 256, self.args["sentence_cnn_ksize"]),
+            nn.Conv1d(512, 512, self.args["sentence_cnn_ksize"]),
             nn.ReLU(),
             nn.Dropout(p=0.2),
         )
-        self.sentence_attention = nn.MultiheadAttention(256, num_heads=1)
+        self.sentence_attention = nn.MultiheadAttention(512, num_heads=1)
 
         # Aspect-Level Network
         self.lda_group_num = self.args["lda_group_num"]
-        self.aspect_attention = nn.MultiheadAttention(256, num_heads=1)
+        self.aspect_attention = nn.MultiheadAttention(512, num_heads=1)
 
         
         # Review-Level Network
-        self.review_attention = nn.MultiheadAttention(256, num_heads=1)
+        self.review_attention = nn.MultiheadAttention(512, num_heads=1)
 
     def word_level_network(self, x, word_cnn, word_attention):
         x = torch.permute(x, (0, 2, 1))

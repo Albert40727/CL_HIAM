@@ -10,28 +10,28 @@ class HianCollabStage1(HianModel):
 
         # Sentence-Level Network
         self.sentence_cnn_network_1 = nn.Sequential(
-            nn.Conv1d(512, 256, self.args["sentence_cnn_ksize"]),
+            nn.Conv1d(512, 512, self.args["sentence_cnn_ksize"]),
             nn.ReLU(),
             nn.Dropout(p=0.2),
         )
-        self.sentence_attention_1 = nn.MultiheadAttention(256, num_heads=1)
+        self.sentence_attention_1 = nn.MultiheadAttention(512, num_heads=1)
 
         # Aspect-Level Network
-        self.aspect_attention_1 = nn.MultiheadAttention(256, num_heads=1)
-        self.aspect_attention_2 = nn.MultiheadAttention(256, num_heads=1)
-        self.aspect_attention_3 = nn.MultiheadAttention(256, num_heads=1)
+        self.aspect_attention_1 = nn.MultiheadAttention(512, num_heads=1)
+        self.aspect_attention_2 = nn.MultiheadAttention(512, num_heads=1)
+        self.aspect_attention_3 = nn.MultiheadAttention(512, num_heads=1)
 
         # FC layers for stage1 predictions
-        self.dropout_stage1 = nn.Dropout(0.1)
-        self.fc1 = nn.Linear(256, 128)
-        self.fc1_1 = nn.Linear(256, 128)
-        self.fc1_2 = nn.Linear(256, 128)
-        self.fc1_3 = nn.Linear(256, 128)
+        self.dropout_stage1 = nn.Dropout(0.4)
+        self.fc1 = nn.Linear(512, 512)
+        self.fc1_1 = nn.Linear(512, 512)
+        self.fc1_2 = nn.Linear(512, 512)
+        self.fc1_3 = nn.Linear(256, 512)
 
-        self.fc2 = nn.Linear(128, 1)
-        self.fc2_1 = nn.Linear(128, 1)
-        self.fc2_2 = nn.Linear(128, 1)
-        self.fc2_3 = nn.Linear(128, 1)
+        self.fc2 = nn.Linear(512, 1)
+        self.fc2_1 = nn.Linear(512, 1)
+        self.fc2_2 = nn.Linear(512, 1)
+        self.fc2_3 = nn.Linear(512, 1)
 
     def fc_layer(self, x, fc1, fc2, dropout):
         x = fc1(x)

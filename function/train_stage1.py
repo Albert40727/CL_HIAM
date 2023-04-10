@@ -29,9 +29,8 @@ def train_stage1_model(args,
         
         user_network.train()
         item_network.train()
-        for ufc, ifc in zip(user_fc_layers_stage1, item_fc_layers_stage1):
-            ufc.train()
-            ifc.train()
+        user_fc_layers_stage1.train()
+        item_fc_layers_stage1.train()
         
         # These are used to record information in training.
         user_train_loss_stage1, user_train_accs_stage1, user_train_precisions_stage1, user_train_recalls_stage1, user_train_f1s_stage1 = [], [], [], [], []
@@ -99,9 +98,8 @@ def train_stage1_model(args,
         # Make sure the model is in eval mode so that some modules like dropout are disabled and work normally.
         user_network.eval()
         item_network.eval()
-        for ufc, ifc in zip(user_fc_layers_stage1, item_fc_layers_stage1):
-            ufc.eval()
-            ifc.eval()
+        user_fc_layers_stage1.eval()
+        item_fc_layers_stage1.eval()
 
         # These are used to record information in validation.
         user_val_loss_stage1, user_val_accs_stage1, user_val_precisions_stage1, user_val_recalls_stage1, user_val_f1s_stage1 = [], [], [], [], []
@@ -190,7 +188,7 @@ def batch_train_stage1(args, review_emb, lda_groups, labels, *,
                        target, network, fc_layers, criterion, models_params, optimizers):
 
     arv, arv_1, arv_2, arv_3 = network(review_emb.to(args["device"]), lda_groups.to(args["device"]))
-    logits, soft_label_1, soft_label_2, soft_label_3 = fc_layers[0](arv), fc_layers[1](arv_1), fc_layers[2](arv_2), fc_layers[3](arv_3)
+    logits, soft_label_1, soft_label_2, soft_label_3 = fc_layers(arv, arv_1, arv_2, arv_3)
 
     loss = ((1-args["trade_off_stage1"])*criterion(logits.reshape(labels.size()), labels.to(args["device"]).float())
              + args["trade_off_stage1"]*(criterion(logits, soft_label_1) + 
@@ -209,8 +207,8 @@ def batch_train_stage1(args, review_emb, lda_groups, labels, *,
     # Update the parameters with computed gradients.
     optimizers.step()
 
-    # Output after sigmoid is greater than 0.5 will be considered as 1, else 0.
-    result_logits = torch.where(logits > 0.82, 1, 0).squeeze(dim=-1)
+    # Output after sigmoid is greater than "Q" will be considered as 1, else 0.
+    result_logits = torch.where(logits > 0.85, 1, 0).squeeze(dim=-1)
     labels = labels.to(args["device"]).reshape(result_logits.size())
 
     # rate = sum(result_logits==labels)/sum(labels)
@@ -229,8 +227,8 @@ def batch_train_stage1(args, review_emb, lda_groups, labels, *,
 def batch_val_stage1(args, review_emb, lda_groups, labels, 
                      *, target, network, fc_layers, criterion):
     # Exacute models 
-    arv, _, _, _ = network(review_emb.to(args["device"]), lda_groups.to(args["device"]))
-    logits = fc_layers[0](arv)
+    arv, arv_1, arv_2, arv_3 = network(review_emb.to(args["device"]), lda_groups.to(args["device"]))
+    logits, soft_label_1, soft_label_2, soft_label_3 = fc_layers(arv, arv_1, arv_2, arv_3)
 
     # We can still compute the loss (but not the gradient).
     loss = criterion(logits.reshape(labels.size()), labels.to(args["device"]).float())

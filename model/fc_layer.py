@@ -3,11 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class FcLayer(nn.Module):
-    def __init__(self, args):
+    def __init__(self):
         super().__init__()
         self.dropout = nn.Dropout(0.2)
-        self.fc1 = nn.Linear(768, 384)
-        self.fc2 = nn.Linear(384, 1)
+        self.fc1 = nn.Linear(1280, 640)
+        self.fc2 = nn.Linear(640, 1)
 
     def forward(self, x):
         x = self.fc1(x)
