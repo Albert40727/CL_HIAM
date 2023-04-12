@@ -35,6 +35,7 @@ def train_stage1_model(args,
         # These are used to record information in training.
         user_train_loss_stage1, user_train_accs_stage1, user_train_precisions_stage1, user_train_recalls_stage1, user_train_f1s_stage1 = [], [], [], [], []
         item_train_loss_stage1, item_train_accs_stage1, item_train_precisions_stage1, item_train_recalls_stage1, item_train_f1s_stage1 = [], [], [], [], []
+        save_param = {}
 
         for batch in tqdm(train_loader):
             # Exacute models
@@ -126,6 +127,14 @@ def train_stage1_model(args,
                 user_val_recalls_stage1.append(recall)
                 user_val_f1s_stage1.append(f1)
 
+                # Param need to be saved according to min loss of val
+                if loss == min(user_val_loss_stage1):
+                    save_param.update({
+                        'user_network_stage1': user_network.state_dict(),
+                        'user_fc_layer_stage1' : user_fc_layers_stage1.state_dict(),
+                        'user_optimizer_stage1' : optimizers[0].state_dict(),
+                        })
+
                 loss, acc, precision, recall, f1 = \
                 batch_val_stage1(args, item_review_emb, item_lda_groups, item_labels,
                                  target = "item",
@@ -139,6 +148,14 @@ def train_stage1_model(args,
                 item_val_precisions_stage1.append(precision)
                 item_val_recalls_stage1.append(recall)
                 item_val_f1s_stage1.append(f1)
+                
+                # Param need to be saved according to min loss of val
+                if loss == min(item_val_loss_stage1):
+                    save_param.update({
+                        'item_network_stage1': item_network.state_dict(),
+                        'item_fc_layer_stage1' : item_fc_layers_stage1.state_dict(),
+                        'item_optimizer_stage1' :  optimizers[1].state_dict(),
+                        })
 
         # The average loss and accuracy for entire validation set is the average of the recorded values.
         user_val_loss, user_val_acc, user_val_precision, user_val_recall, user_val_f1 = \
@@ -147,7 +164,7 @@ def train_stage1_model(args,
                    user_val_precisions_stage1,
                    user_val_recalls_stage1,
                    user_val_f1s_stage1,
-                   mode = "valid",
+                   mode = "Valid",
                    target = "user",
                    epoch = epoch,
                    n_epochs = n_epochs)
@@ -158,7 +175,7 @@ def train_stage1_model(args,
                    item_val_precisions_stage1,
                    item_val_recalls_stage1,
                    item_val_f1s_stage1,
-                   mode = "valid",
+                   mode = "Valid",
                    target="item",
                    epoch = epoch,
                    n_epochs = n_epochs)
@@ -173,16 +190,10 @@ def train_stage1_model(args,
         v_item_loss_list_stage1.append(item_val_loss)
         v_item_acc_list_stage1.append(item_val_acc.cpu())
 
-        # if (epoch+1)%5 == 0:
-        #     torch.save(user_network.state_dict(), f"output/model/user_network_{epoch+1}_{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.pt")
-        #     torch.save(item_network.state_dict(), f"output/model/item_network_{epoch+1}_{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.pt")
-        #     torch.save(co_attentions.state_dict(), f"output/model/co_attentions_{epoch+1}_{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.pt")
-        #     torch.save(fc_layers.state_dict(), f"output/model/fc_layers_{epoch+1}.pt")
-
     print("-------------------------- STAGE1 END --------------------------")
 
     return t_user_loss_list_stage1, t_user_acc_list_stage1, t_item_loss_list_stage1, t_item_acc_list_stage1,\
-           v_user_loss_list_stage1, v_user_acc_list_stage1, v_item_loss_list_stage1, v_item_acc_list_stage1
+           v_user_loss_list_stage1, v_user_acc_list_stage1, v_item_loss_list_stage1, v_item_acc_list_stage1, save_param
 
 def batch_train_stage1(args, review_emb, lda_groups, labels, *, 
                        target, network, fc_layers, criterion, models_params, optimizers):
@@ -208,11 +219,8 @@ def batch_train_stage1(args, review_emb, lda_groups, labels, *,
     optimizers.step()
 
     # Output after sigmoid is greater than "Q" will be considered as 1, else 0.
-    result_logits = torch.where(logits > 0.85, 1, 0).squeeze(dim=-1)
+    result_logits = torch.where(logits > 0.5, 1, 0).squeeze(dim=-1)
     labels = labels.to(args["device"]).reshape(result_logits.size())
-
-    # rate = sum(result_logits==labels)/sum(labels)
-    # print(f"loss:{loss:}", f"result logit: {sum(result_logits)}", f"labels: {sum(labels)}", f"acc: {rate:.2f}")
 
     # Compute the informations for current batch.
     acc = (result_logits == labels).float().mean()
@@ -220,7 +228,9 @@ def batch_train_stage1(args, review_emb, lda_groups, labels, *,
     recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0)
     f1 = f1_score(labels.cpu(), result_logits.cpu())
 
-    # ndcg = ndcg_score(labels.unsqueeze(dim=-1).cpu(), result_logits.unsqueeze(dim=-1).cpu())
+    # rate = sum(result_logits==labels)/sum(labels)
+    # print(f"loss:{loss:.4f}", f"result logit: {sum(result_logits)}", f"labels: {sum(labels)}", f"acc: {rate:.3f}", f"precision: {precision:.3f}", f"recall: {recall:.3f}")
+
 
     return loss.item(), acc, precision, recall, f1
 
@@ -228,7 +238,7 @@ def batch_val_stage1(args, review_emb, lda_groups, labels,
                      *, target, network, fc_layers, criterion):
     # Exacute models 
     arv, arv_1, arv_2, arv_3 = network(review_emb.to(args["device"]), lda_groups.to(args["device"]))
-    logits, soft_label_1, soft_label_2, soft_label_3 = fc_layers(arv, arv_1, arv_2, arv_3)
+    logits, _, _, _ = fc_layers(arv, arv_1, arv_2, arv_3)
 
     # We can still compute the loss (but not the gradient).
     loss = criterion(logits.reshape(labels.size()), labels.to(args["device"]).float())

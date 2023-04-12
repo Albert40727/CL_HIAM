@@ -30,7 +30,6 @@ def main(**args):
     train_loader_stage1 = DataLoader(train_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
     val_loader_stage1 = DataLoader(val_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
     
-
     if not args["collab_learning"]:
         # Init model
         user_network_model = HianModel(args).to(device)
@@ -45,17 +44,18 @@ def main(**args):
 
         # Training 
         train_loss, train_acc, val_loss, val_acc = \
-            train_model(args, 
-                        train_loader, 
-                        val_loader, 
-                        user_network_model, 
-                        item_network_model, 
-                        co_attention, 
-                        fc_layer, 
-                        criterion=criterion, 
-                        models_params=params, 
-                        optimizer=optimizer)
-        
+        train_model(
+            args, 
+            train_loader, 
+            val_loader, 
+            user_network_model, 
+            item_network_model, 
+            co_attention, 
+            fc_layer, 
+            criterion=criterion, 
+            models_params=params, 
+            optimizer=optimizer)
+
         # Save model
         PATH = args["model_save_path_base"] + "model_base_{}.pt".format(time.strftime("%m%d%H%M%S"))
         torch.save({
@@ -85,10 +85,7 @@ def main(**args):
         fc_layers_stage2 = FcLayerStage2().to(device)
 
         # Back propagation gate
-        user_bp_gate = BackPropagationGate()
-        user_bp_gate_1 = BackPropagationGate()
-        item_bp_gate = BackPropagationGate()
-        item_bp_gate_1 = BackPropagationGate()
+        bp_gate = BackPropagationGate()
 
         # Loss criteria
         user_criterion_stage1 = nn.CrossEntropyLoss()
@@ -107,14 +104,14 @@ def main(**args):
                          list(co_attentions.parameters()) + 
                          list(fc_layers_stage2.parameters()))
         
-        user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=1e-3, weight_decay=1e-4)
-        item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-3, weight_decay=1e-4)
-        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-3, weight_decay=1e-4)
+        user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=1e-4, weight_decay=1e-5)
+        item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-4, weight_decay=1e-5)
+        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-4, weight_decay=1e-5)
 
         # Training 
         # Stage1 
         (t_user_loss_stage1, t_user_acc_stage1, t_item_loss_stage1, t_item_acc_stage1,
-          v_user_loss_stage1, v_user_acc_stage1, v_item_loss_stage1, v_item_acc_stage1) = \
+          v_user_loss_stage1, v_user_acc_stage1, v_item_loss_stage1, v_item_acc_stage1, save_param_stage1) = \
         train_stage1_model(
             args,                                                           
             train_loader_stage1,
@@ -128,18 +125,11 @@ def main(**args):
             optimizers=[user_optimizer_stage1, item_optimizer_stage1])
         
         # Save stage1 model
-        PATH = args["model_save_path_cl"] + "model_cl_stage1_{}.pt".format(time.strftime("%m%d%H%M%S"))
-        torch.save({
-            'user_network_stage1': user_network_stage1.state_dict(),
-            'item_network_stage1': item_network_stage1.state_dict(),
-            'user_fc_layer_stage1' : user_fc_layer_stage1.state_dict(),
-            'item_fc_layer_stage1' : item_fc_layer_stage1.state_dict(),
-            'user_optimizer_stage1' : user_optimizer_stage1.state_dict(),
-            'item_optimizer_stage1' :  item_optimizer_stage1.state_dict(),
-            }, PATH)
+        STAGE1_PATH = args["model_save_path_cl"] + "model_cl_stage1_{}.pt".format(time.strftime("%m%d%H%M%S"))
+        torch.save(save_param_stage1, STAGE1_PATH)
 
         # Stage2
-        t_loss_stage2, t_acc_stage2, v_loss_stage2, v_acc_stage2 = \
+        t_loss_stage2, t_acc_stage2, v_loss_stage2, v_acc_stage2, save_param_stage2 = \
         train_stage2_model(
             args,                                                           
             train_loader,
@@ -150,20 +140,15 @@ def main(**args):
             item_review_network, 
             co_attentions, 
             fc_layers_stage2, 
-            bp_gates = [user_bp_gate, user_bp_gate_1, item_bp_gate, item_bp_gate_1],
+            stage1_param_path = STAGE1_PATH, 
+            bp_gate = bp_gate,
             criterion = criterion_stage2, 
             models_param = params_stage2, 
             optimizer = optimizer_stage2)
         
         # Save stage2 model
-        PATH = args["model_save_path_cl"] + "model_cl_stage2_{}.pt".format(time.strftime("%m%d%H%M%S"))
-        torch.save({
-            'user_review_network' : user_review_network.state_dict(),
-            'item_review_network' : item_review_network.state_dict(),
-            'co_attention_stage2' : co_attentions.state_dict(),
-            'fc_layer_stage2' : fc_layers_stage2.state_dict(),
-            'optimizer_stage2': optimizer_stage2.state_dict(),
-            }, PATH)
+        STAGE2_PATH = args["model_save_path_cl"] + "model_cl_stage2_{}.pt".format(time.strftime("%m%d%H%M%S"))
+        torch.save(save_param_stage2, STAGE2_PATH)
         
         # Plot stage1 loss & acc
         draw_loss_curve_stage1(t_user_loss_stage1, v_user_loss_stage1, t_item_loss_stage1, v_item_loss_stage1)
@@ -196,15 +181,15 @@ if __name__ == "__main__":
         "co_attention_emb_dim" : 512,
         "mf_emb_dim" : 128,
         "lda_group_num": 6, # Include default 0 group. 
-        "word_cnn_ksize" : 3,   # odd number 
+        "word_cnn_ksize" : 5,   # odd number 
         "sentence_cnn_ksize" : 3,   # odd number 
         "epoch" : 20,
         "batch_size": 32,
         "collab_learning": True,
-        "epoch_stage1" : 20,
-        "epoch_stage2" : 20,
-        "trade_off_stage1": 0.7, 
-        "trade_off_stage2": 0.7,
+        "epoch_stage1" : 10,
+        "epoch_stage2" : 10,
+        "trade_off_stage1": 0.3, 
+        "trade_off_stage2": 0.3,
     }
 
     print("Device: ", device)

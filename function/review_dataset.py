@@ -13,7 +13,6 @@ class ReviewDataset(Dataset):
             self.review_df = pd.read_pickle(args["val_data_dir"])
         self.user_mf_df = pd.read_pickle(args["user_mf_data_dir"])
         self.item_mf_df = pd.read_pickle(args["item_mf_data_dir"])
-        # self.start = int(file_name.split(".")[0].split("_")[2].split("-")[0]) # ex: "filtered_reviews_500-599.h5" -> 500
       
     def __getitem__(self, idx):
 

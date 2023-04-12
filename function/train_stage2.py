@@ -17,13 +17,19 @@ def train_stage2_model(args,
                        co_attentions, 
                        fc_layers_stage2, 
                        *, 
-                       bp_gates,
+                       stage1_param_path,
+                       bp_gate,
                        criterion,
                        models_param, 
                        optimizer):
     
     # For plot usage
     t_loss_list_stage2, t_acc_list_stage2 , v_loss_list_stage2, v_acc_list_stage2 = [], [], [], []
+
+    # Load stage1 according to checkpoint
+    checkpoint = torch.load(stage1_param_path)
+    user_network_stage1.load_state_dict(checkpoint["user_network_stage1"])
+    item_network_stage1.load_state_dict(checkpoint["item_network_stage1"])
 
     print("-------------------------- STAGE2 START --------------------------")
     for epoch in range(args["epoch_stage2"]):
@@ -46,6 +52,7 @@ def train_stage2_model(args,
         train_precisions = []
         train_recalls = []
         train_f1s = []
+        save_param = {}
 
         for batch in tqdm(train_loader):
 
@@ -56,10 +63,10 @@ def train_stage2_model(args,
             item_logits, _, _, _ = item_network_stage1(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
             urf, urf_1 = user_review_network(user_logits, u_batch_size)
             irf, irf_1 = item_review_network(item_logits, u_batch_size)
-            urf = bp_gates[0].apply(urf)
-            urf_1 = bp_gates[1].apply(urf_1)
-            irf = bp_gates[2].apply(irf)
-            irf_1 = bp_gates[3].apply(irf_1)
+            urf = bp_gate.apply(urf)
+            urf_1 = bp_gate.apply(urf_1)
+            irf = bp_gate.apply(irf)
+            irf_1 = bp_gate.apply(irf_1)
             w_urf, w_urf_1, w_urf_2, w_urf_3, w_irf, w_irf_1, w_irf_2, w_irf_3 = co_attentions(urf, urf, urf_1, urf_1, irf, irf, irf_1, irf_1)
             
             user_feature = torch.cat((w_urf, user_mf_emb.to(args["device"])), dim=1)
@@ -95,9 +102,10 @@ def train_stage2_model(args,
 
             # Update the parameters with computed gradients.
             optimizer.step()
-
+            
+            
             # Output after sigmoid is greater than 0.5 will be considered as 1, else 0.
-            result_logits = torch.where(logits > 0.85, 1, 0).squeeze(dim=-1)
+            result_logits = torch.where(logits > 0.5, 1, 0).squeeze(dim=-1)
             labels = labels.to(args["device"])
 
             # Compute the informations for current batch.
@@ -105,7 +113,9 @@ def train_stage2_model(args,
             precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
             recall = recall_score(labels.cpu(), result_logits.cpu())
             f1 = f1_score(labels.cpu(), result_logits.cpu())
-            # ndcg = ndcg_score(labels.unsqueeze(dim=-1).cpu(), result_logits.unsqueeze(dim=-1).cpu())
+            
+            # print(logits.squeeze(dim=-1))
+            # print(f"loss = {loss:.5f}, acc = {acc:.4f}, precision = {precision:.4f}, recall = {recall:.4f}, f1 = {f1}")
 
             # Record the information.
             train_loss.append(loss.item())
@@ -167,7 +177,6 @@ def train_stage2_model(args,
                 labels = labels.to(args["device"])
 
                 # Compute the information for current batch.
-                result_logits = torch.where(logits > 0.5, 1, 0).squeeze(dim=-1)
                 acc = (result_logits == labels.to(args["device"])).float().mean()
                 precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
                 recall = recall_score(labels.cpu(), result_logits.cpu())
@@ -180,6 +189,16 @@ def train_stage2_model(args,
                 valid_precisions.append(precision)
                 valid_recalls.append(recall)
                 valid_f1s.append(f1)
+
+                # Param need to be saved according to min loss of val
+                if loss.item() == min(valid_loss):
+                    save_param.update({
+                        'user_review_network' : user_review_network.state_dict(),
+                        'item_review_network' : item_review_network.state_dict(),
+                        'co_attention_stage2' : co_attentions.state_dict(),
+                        'fc_layer_stage2' : fc_layers_stage2.state_dict(),
+                        'optimizer_stage2': optimizer.state_dict(),
+                        })
 
         # The average loss and accuracy for entire validation set is the average of the recorded values.
         valid_loss = sum(valid_loss) / len(valid_loss)
@@ -199,7 +218,7 @@ def train_stage2_model(args,
 
     print("-------------------------- STAGE2 END --------------------------")
 
-    return t_loss_list_stage2, t_acc_list_stage2, v_loss_list_stage2, v_acc_list_stage2
+    return t_loss_list_stage2, t_acc_list_stage2, v_loss_list_stage2, v_acc_list_stage2, save_param
 
 def draw_loss_curve_stage2(train_loss, valid_loss):
     plt.plot(train_loss, color="mediumblue", label="Train", marker='o')
