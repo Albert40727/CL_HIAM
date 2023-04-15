@@ -127,14 +127,6 @@ def train_stage1_model(args,
                 user_val_recalls_stage1.append(recall)
                 user_val_f1s_stage1.append(f1)
 
-                # Param need to be saved according to min loss of val
-                if loss == min(user_val_loss_stage1):
-                    save_param.update({
-                        'user_network_stage1': user_network.state_dict(),
-                        'user_fc_layer_stage1' : user_fc_layers_stage1.state_dict(),
-                        'user_optimizer_stage1' : optimizers[0].state_dict(),
-                        })
-
                 loss, acc, precision, recall, f1 = \
                 batch_val_stage1(args, item_review_emb, item_lda_groups, item_labels,
                                  target = "item",
@@ -149,14 +141,6 @@ def train_stage1_model(args,
                 item_val_recalls_stage1.append(recall)
                 item_val_f1s_stage1.append(f1)
                 
-                # Param need to be saved according to min loss of val
-                if loss == min(item_val_loss_stage1):
-                    save_param.update({
-                        'item_network_stage1': item_network.state_dict(),
-                        'item_fc_layer_stage1' : item_fc_layers_stage1.state_dict(),
-                        'item_optimizer_stage1' :  optimizers[1].state_dict(),
-                        })
-
         # The average loss and accuracy for entire validation set is the average of the recorded values.
         user_val_loss, user_val_acc, user_val_precision, user_val_recall, user_val_f1 = \
         epoch_info(user_val_loss_stage1, 
@@ -189,6 +173,22 @@ def train_stage1_model(args,
         v_user_acc_list_stage1.append(user_val_acc.cpu())
         v_item_loss_list_stage1.append(item_val_loss)
         v_item_acc_list_stage1.append(item_val_acc.cpu())
+
+        # Param need to be saved according to min loss of val
+        if user_val_loss == min(v_user_loss_list_stage1):
+            save_param.update({
+                'user_network_stage1': user_network.state_dict(),
+                'user_fc_layer_stage1' : user_fc_layers_stage1.state_dict(),
+                'user_optimizer_stage1' : optimizers[0].state_dict(),
+                })
+
+        if item_val_loss == min(v_item_loss_list_stage1):
+            save_param.update({
+                'item_network_stage1': item_network.state_dict(),
+                'item_fc_layer_stage1' : item_fc_layers_stage1.state_dict(),
+                'item_optimizer_stage1' :  optimizers[1].state_dict(),
+                })
+
 
     print("-------------------------- STAGE1 END --------------------------")
 
