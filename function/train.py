@@ -8,8 +8,10 @@ from sklearn.metrics import precision_score, recall_score, f1_score, ndcg_score
 def train_model(args, train_loader, val_loader, user_network, item_network, co_attention, fc_layer,
                  *, criterion, models_params, optimizer):
     
+    # For recording history usage
     t_loss_list, t_acc_list, t_precision_list, t_recall_list, t_f1_list = [], [], [], [], []
     v_loss_list, v_acc_list, v_precision_list, v_recall_list, v_f1_list = [], [], [], [], []
+    save_param = {}
 
     for epoch in range(args["epoch"]):
 
@@ -134,6 +136,7 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
                 valid_precisions.append(precision)
                 valid_recalls.append(recall)
                 valid_f1s.append(f1)
+        
 
         # The average loss and accuracy for entire validation set is the average of the recorded values.
         valid_loss = sum(valid_loss) / len(valid_loss)
@@ -151,13 +154,17 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
         v_loss_list.append(valid_loss)
         v_acc_list.append(valid_acc.cpu())
 
-        if (epoch+1)%5 == 0:
-            torch.save(user_network.state_dict(), "output/model/base/user_network_{}_{}.pt".format(epoch+1, time.strftime("%m%d%H%M%S")))
-            torch.save(item_network.state_dict(), "output/model/base/item_network_{}_{}.pt".format(epoch+1, time.strftime("%m%d%H%M%S")))
-            torch.save(co_attention.state_dict(), "output/model/base/co_attention_{}_{}.pt".format(epoch+1, time.strftime("%m%d%H%M%S")))
-            torch.save(fc_layer.state_dict(), f"output/model/fc_layer_{epoch+1}.pt")
+        if valid_loss == min(v_loss_list):
+            save_param.update({
+                'user_review_network' : user_network.state_dict(),
+                'item_review_network' : item_network.state_dict(),
+                'co_attention' : co_attention.state_dict(),
+                'fc_layer' : fc_layer.state_dict(),
+                'optimizer': optimizer.state_dict(),
+            })
 
-    return t_loss_list, t_acc_list, v_loss_list, v_acc_list
+
+    return t_loss_list, t_acc_list, v_loss_list, v_acc_list, save_param
 
 def draw_loss_curve(train_loss, valid_loss):
     plt.plot(train_loss, color="mediumblue", label="Train", marker='o')

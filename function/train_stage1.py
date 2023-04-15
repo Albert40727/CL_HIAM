@@ -17,9 +17,10 @@ def train_stage1_model(args,
                        models_params, 
                        optimizers):
     
-    # For plotting usage
+    # For recording history usage
     t_user_loss_list_stage1, t_user_acc_list_stage1, t_item_loss_list_stage1, t_item_acc_list_stage1 = [], [], [], []
     v_user_loss_list_stage1, v_user_acc_list_stage1, v_item_loss_list_stage1, v_item_acc_list_stage1 = [], [], [], []
+    save_param = {}
 
     print("-------------------------- STAGE1 START --------------------------")
     # Stage 1 training
@@ -35,7 +36,6 @@ def train_stage1_model(args,
         # These are used to record information in training.
         user_train_loss_stage1, user_train_accs_stage1, user_train_precisions_stage1, user_train_recalls_stage1, user_train_f1s_stage1 = [], [], [], [], []
         item_train_loss_stage1, item_train_accs_stage1, item_train_precisions_stage1, item_train_recalls_stage1, item_train_f1s_stage1 = [], [], [], [], []
-        save_param = {}
 
         for batch in tqdm(train_loader):
             # Exacute models
@@ -188,7 +188,6 @@ def train_stage1_model(args,
                 'item_fc_layer_stage1' : item_fc_layers_stage1.state_dict(),
                 'item_optimizer_stage1' :  optimizers[1].state_dict(),
                 })
-
 
     print("-------------------------- STAGE1 END --------------------------")
 

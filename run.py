@@ -40,10 +40,10 @@ def main(**args):
         # Loss criteria
         criterion = nn.CrossEntropyLoss()
         params = list(user_network_model.parameters()) + list(item_network_model.parameters()) + list(co_attentions.parameters()) + list(fc_layer.parameters())
-        optimizer = torch.optim.Adam(params, lr=1e-3, weight_decay=1e-4)
+        optimizer = torch.optim.Adam(params, lr=1e-4, weight_decay=1e-5)
 
         # Training 
-        train_loss, train_acc, val_loss, val_acc = \
+        train_loss, train_acc, val_loss, val_acc, save_param = \
         train_model(
             args, 
             train_loader, 
@@ -58,13 +58,7 @@ def main(**args):
 
         # Save model
         PATH = args["model_save_path_base"] + "model_base_{}.pt".format(time.strftime("%m%d%H%M%S"))
-        torch.save({
-            'user_network_stage1': user_network_model.state_dict(),
-            'item_network_stage1': item_network_model.state_dict(),
-            'co_attention' : co_attention.state_dict(),
-            'fc_layer' : fc_layer.state_dict(),
-            'optimizer_stage2': optimizer.state_dict(),
-            }, PATH)
+        torch.save(save_param, PATH)
         
         # Plot loss & acc curves
         draw_loss_curve(train_loss, val_loss)
@@ -125,6 +119,7 @@ def main(**args):
             optimizers=[user_optimizer_stage1, item_optimizer_stage1])
         
         # Save stage1 model
+        # Make sure you've change the STAGE1_PATH if you only want to train stage2
         STAGE1_PATH = args["model_save_path_cl"] + "model_cl_stage1_{}.pt".format(time.strftime("%m%d%H%M%S"))
         torch.save(save_param_stage1, STAGE1_PATH)
 

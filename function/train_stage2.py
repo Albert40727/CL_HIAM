@@ -23,13 +23,14 @@ def train_stage2_model(args,
                        models_param, 
                        optimizer):
     
-    # For plot usage
+    # For recording history usage
     t_loss_list_stage2, t_acc_list_stage2 , v_loss_list_stage2, v_acc_list_stage2 = [], [], [], []
+    save_param = {}
 
     # Load stage1 according to checkpoint
-    checkpoint = torch.load(stage1_param_path)
-    user_network_stage1.load_state_dict(checkpoint["user_network_stage1"])
-    item_network_stage1.load_state_dict(checkpoint["item_network_stage1"])
+    # checkpoint = torch.load(stage1_param_path)
+    # user_network_stage1.load_state_dict(checkpoint["user_network_stage1"])
+    # item_network_stage1.load_state_dict(checkpoint["item_network_stage1"])
 
     print("-------------------------- STAGE2 START --------------------------")
     for epoch in range(args["epoch_stage2"]):
@@ -52,7 +53,6 @@ def train_stage2_model(args,
         train_precisions = []
         train_recalls = []
         train_f1s = []
-        save_param = {}
 
         for batch in tqdm(train_loader):
 
@@ -190,16 +190,6 @@ def train_stage2_model(args,
                 valid_recalls.append(recall)
                 valid_f1s.append(f1)
 
-                # Param need to be saved according to min loss of val
-                if loss.item() == min(valid_loss):
-                    save_param.update({
-                        'user_review_network' : user_review_network.state_dict(),
-                        'item_review_network' : item_review_network.state_dict(),
-                        'co_attention_stage2' : co_attentions.state_dict(),
-                        'fc_layer_stage2' : fc_layers_stage2.state_dict(),
-                        'optimizer_stage2': optimizer.state_dict(),
-                        })
-
         # The average loss and accuracy for entire validation set is the average of the recorded values.
         valid_loss = sum(valid_loss) / len(valid_loss)
         valid_acc = sum(valid_accs) / len(valid_accs)
@@ -215,6 +205,16 @@ def train_stage2_model(args,
         t_acc_list_stage2.append(train_acc.cpu())
         v_loss_list_stage2.append(valid_loss)
         v_acc_list_stage2.append(valid_acc.cpu())
+
+        # Param need to be saved according to min loss of val
+        if valid_loss == min(v_loss_list_stage2):
+            save_param.update({
+                'user_review_network' : user_review_network.state_dict(),
+                'item_review_network' : item_review_network.state_dict(),
+                'co_attention_stage2' : co_attentions.state_dict(),
+                'fc_layer_stage2' : fc_layers_stage2.state_dict(),
+                'optimizer_stage2': optimizer.state_dict(),
+                })
 
     print("-------------------------- STAGE2 END --------------------------")
 
