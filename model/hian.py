@@ -4,25 +4,26 @@ import torch
 
 class HianModel(nn.Module):
     """
-    B: Batch, N: User/Item max review num, W: Word, S:Sentence, A:Aspect, D:Output Dimension 
-            input:  x: 32, N, 250, 768 
+    B: Batch, N: User/Item max review, W: Max Word, S:Max Sentence, A:Aspect, D:Emb Dimension 
+
+            input:  x: 32, N, 250, 768 (B, N, W*S, D)
                             |reshape
                             v
-                    x: 32*N, 250, 768 (B, N, W*S, D)
+                    x: 32*N, 250, 768 (B*N, W*S, D)
                             |
                             |w_cnn_network + attention
                             v
-                    x: 32*N, 10, D  (B, N, S, D)
+                    x: 32*N, 10, D  (B*N, S, D)
                             |
                             |s_cnn_network + attention
                             v 
-                    x: 32*N, 10, D  (B, N, S, D)
+                    x: 32*N, 10, D  (B*N, S, D)
                             |
-                            |(LDA) + attention
+                            |get_aspect_emb_from_sent (LDA) 
                             v             
-                    x: 32*N, 6, D   (B, N, A, D)
+                    x: 32*N, 6, D   (B*N, A, D)
                             |
-                            |aspect attention weighted sum
+                            |aspect attention
                             v
                     x: 32, N, D  (B, N, D)
                             |
@@ -33,15 +34,14 @@ class HianModel(nn.Module):
                             |co_attention (Outside HianModel)
                             v
                         x: 32, D                 
-    """
-    """
+
     (Some emb might be permuted during training due to the Conv1d input format)
     Word Emb:               torch.Size([50, 250, 768])
     Sentence Emb:           torch.Size([50, 10, 512])
-    Weighted Sentence Emb:  torch.Size([50, 10, 256])
-    Aspect Emb:             torch.Size([50, 6, 256])
-    Aspect Review Emb:      torch.Size([50, 256])
-    User/Item Emb:          torch.Size([256]) (after co-attention) 
+    Weighted Sentence Emb:  torch.Size([50, 10, 512])
+    Aspect Emb:             torch.Size([50, 6, 512])
+    Aspect Review Emb:      torch.Size([50, 512])
+    User/Item Emb:          torch.Size([512]) (after co-attention) 
     """
 
     def __init__(self, args):

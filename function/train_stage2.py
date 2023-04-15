@@ -201,6 +201,7 @@ def train_stage2_model(args,
         with open('output/history/stage2.csv','a') as file:
             file.write(time.strftime("%m-%d %H:%M")+","+f"valid,stage2,{epoch + 1:03d}/{n_epochs:03d},{valid_loss:.5f},{valid_acc:.4f},{valid_precision:.4f},{valid_recall:.4f},{valid_f1}" + "\n")
 
+        # Record history
         t_loss_list_stage2.append(train_loss)
         t_acc_list_stage2.append(train_acc.cpu())
         v_loss_list_stage2.append(valid_loss)

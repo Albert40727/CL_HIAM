@@ -164,6 +164,7 @@ def train_stage1_model(args,
                    epoch = epoch,
                    n_epochs = n_epochs)
 
+        # Record history
         t_user_loss_list_stage1.append(user_train_loss)
         t_user_acc_list_stage1.append(user_train_acc.cpu())
         t_item_loss_list_stage1.append(item_train_loss)

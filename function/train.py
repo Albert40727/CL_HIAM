@@ -41,7 +41,6 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
             fc_input = torch.cat((user_feature, item_feature), dim=1)
             output_logits = fc_layer(fc_input)
 
-            # model.train()  
             loss = criterion(torch.squeeze(output_logits, dim=1), labels.to(args["device"]).float())
 
             # Gradients stored in the parameters in the previous step should be cleared out first.
@@ -109,9 +108,9 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
                 user_review_emb, item_review_emb, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, labels = batch
                 user_logits = user_network(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
                 item_logits = item_network(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
-                weighted_user_logits,  weighted_item_logits = co_attention(user_logits.to(args["device"]), item_logits.to(args["device"]))
-                user_feature = torch.cat((weighted_user_logits.to(args["device"]), user_mf_emb.to(args["device"])), dim=1)
-                item_feature = torch.cat((weighted_item_logits.to(args["device"]), item_mf_emb.to(args["device"])), dim=1)
+                weighted_user_logits,  weighted_item_logits = co_attention(user_logits, item_logits)
+                user_feature = torch.cat((weighted_user_logits, user_mf_emb.to(args["device"])), dim=1)
+                item_feature = torch.cat((weighted_item_logits, item_mf_emb.to(args["device"])), dim=1)
                 fc_input = torch.cat((user_feature, item_feature), dim=1)
                 output_logits = fc_layer(fc_input)
 
@@ -120,11 +119,10 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
 
                 # Output after sigmoid is greater than 1.3(p>0.8) will be considered as 1, else 0.
                 result_logits = torch.where(output_logits > 0.8, 1, 0).squeeze(dim=-1)
-                labels = labels.to(args["device"])
 
                 # Compute the information for current batch.
                 result_logits = torch.where(output_logits > 0.8, 1, 0).squeeze(dim=-1)
-                acc = (result_logits == labels.to(args["device"])).float().mean()
+                acc = (result_logits == labels).float().mean()
                 precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
                 recall = recall_score(labels.cpu(), result_logits.cpu())
                 f1 = f1_score(labels.cpu(), result_logits.cpu())
@@ -149,6 +147,7 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
         with open('output/history/base.csv','a') as file:
             file.write(time.strftime("%m-%d %H:%M")+","+f"valid,base,{epoch + 1:03d}/{n_epochs:03d},{valid_loss:.5f},{valid_acc:.4f},{valid_precision:.4f},{valid_recall:.4f},{valid_f1}" + "\n")
 
+        # Record history
         t_loss_list.append(train_loss)
         t_acc_list.append(train_acc.cpu())
         v_loss_list.append(valid_loss)
