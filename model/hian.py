@@ -55,7 +55,7 @@ class HianModel(nn.Module):
             nn.ReLU(),
             nn.Dropout(p=0.2),
         )
-        self.word_attention = nn.MultiheadAttention(512, num_heads=1, batch_first =True)
+        self.word_attention = nn.MultiheadAttention(512, num_heads=1, batch_first=True)
         
         # Sentence-Level Network
         self.sent_pad_size = int((self.args["sentence_cnn_ksize"]-1)/2)
@@ -64,15 +64,15 @@ class HianModel(nn.Module):
             nn.ReLU(),
             nn.Dropout(p=0.2),
         )
-        self.sentence_attention = nn.MultiheadAttention(512, num_heads=1)
+        self.sentence_attention = nn.MultiheadAttention(512, num_heads=1, batch_first=True)
 
         # Aspect-Level Network
         self.lda_group_num = self.args["lda_group_num"]
-        self.aspect_attention = nn.MultiheadAttention(512, num_heads=1)
+        self.aspect_attention = nn.MultiheadAttention(512, num_heads=1, batch_first=True)
 
         
         # Review-Level Network
-        self.review_attention = nn.MultiheadAttention(512, num_heads=1)
+        self.review_attention = nn.MultiheadAttention(512, num_heads=1, batch_first=True)
 
     def word_level_network(self, x, word_cnn, word_attention):
         x = torch.permute(x, (0, 2, 1))
@@ -85,23 +85,24 @@ class HianModel(nn.Module):
         x = torch.permute(x, [0, 2, 1])
         return x
     
-    def sentence_level_network(self, x, sent_cnn, sent_attention):
+    def sentence_level_network(self, x, sent_cnn, sent_attention, lda_groups):
         x = F.pad(x, (self.sent_pad_size, self.sent_pad_size), "constant", 0) # same to keras: padding = same
         x = sent_cnn(x)
         x = torch.permute(x, [0, 2, 1])
-        attn_output = sent_attention(x, key=x, value=x, need_weights=False)
+        sent_mask = (lda_groups == False).reshape(-1, lda_groups.size(2))
+        attn_output = sent_attention(x, x, x, key_padding_mask=sent_mask, need_weights=False)
         x = x * attn_output[0]
         return x 
     
     def aspect_level_network(self, x, lda_groups, aspect_attention):
         lda_groups = lda_groups.reshape(-1, lda_groups.size(2))
-        x = self.get_aspect_emb_from_sent(x, lda_groups, self.lda_group_num) 
-        attn_output = aspect_attention(x, key=x, value=x, need_weights=False)
+        x, aspect_att_mask = self.get_aspect_emb_from_sent(x, lda_groups, self.lda_group_num) 
+        attn_output = aspect_attention(x, x, x, key_padding_mask=aspect_att_mask.to(self.args["device"]), need_weights=False)
         x = torch.sum(x * attn_output[0], 1) #weighted sum
         return x
 
     def review_level_network(self, x, review_attetion, *, batch_size):
-        attn_output = review_attetion(x, key=x, value=x, need_weights=False)
+        attn_output = review_attetion(x, x, x, need_weights=False)
         x = x * attn_output[0]
         x = x.reshape(batch_size, -1, x.size(1))
         return x 
@@ -121,6 +122,7 @@ class HianModel(nn.Module):
         """
         Weighted sum sentences' emb according to their LDA groups respectively.  
         """
+        aspect_att_mask = torch.zeros((input_tensor.size(0), group_num))
         lda_groups = torch.unsqueeze(lda_groups, dim=-1)
         group_tensor_list = []
 
@@ -133,8 +135,14 @@ class HianModel(nn.Module):
             group_tensor = group_tensor/mask_sum
             group_tensor_list.append(group_tensor)
 
-        aspect_review_tensor = torch.stack(group_tensor_list).permute(1, 0, 2)      
-        return aspect_review_tensor
+            # Mask generate
+            group_mask = torch.any((lda_groups.squeeze(dim=-1))==group ,dim=1)
+            aspect_att_mask[:,group] = group_mask
+
+        aspect_review_tensor = torch.stack(group_tensor_list).permute(1, 0, 2)  
+        aspect_att_mask = torch.where(aspect_att_mask==0, 1., 0.)  
+
+        return aspect_review_tensor, aspect_att_mask
     
 
     def forward(self, x, lda_groups):
@@ -142,7 +150,7 @@ class HianModel(nn.Module):
         batch_size, num_review, num_words, word_dim = x.shape
         x = x.reshape(-1, x.size(2), x.size(3))
         x = self.word_level_network(x, self.word_cnn_network, self.word_attention)
-        x = self.sentence_level_network(x, self.sentence_cnn_network, self.sentence_attention)
+        x = self.sentence_level_network(x, self.sentence_cnn_network, self.sentence_attention, lda_groups)
         x = self.aspect_level_network(x, lda_groups, self.aspect_attention)
         x = self.review_level_network(x, self.review_attention, batch_size=batch_size)
 

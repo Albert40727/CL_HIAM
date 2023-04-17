@@ -14,12 +14,12 @@ class HianCollabStage1(HianModel):
             nn.ReLU(),
             nn.Dropout(p=0.2),
         )
-        self.sentence_attention_1 = nn.MultiheadAttention(512, num_heads=1)
+        self.sentence_attention_1 = nn.MultiheadAttention(512, num_heads=1, batch_first=True)
 
         # Aspect-Level Network
-        self.aspect_attention_1 = nn.MultiheadAttention(512, num_heads=1)
-        self.aspect_attention_2 = nn.MultiheadAttention(512, num_heads=1)
-        self.aspect_attention_3 = nn.MultiheadAttention(512, num_heads=1)
+        self.aspect_attention_1 = nn.MultiheadAttention(512, num_heads=1, batch_first=True)
+        self.aspect_attention_2 = nn.MultiheadAttention(512, num_heads=1, batch_first=True)
+        self.aspect_attention_3 = nn.MultiheadAttention(512, num_heads=1, batch_first=True)
 
         # FC layers for stage1 predictions
         self.dropout_stage1 = nn.Dropout(0.4)
@@ -51,15 +51,18 @@ class HianCollabStage1(HianModel):
         x_s = BackPropagationGate.apply(x_s)
 
         # Sentence-Level Network
-        x_as = self.sentence_level_network(x_s, self.sentence_cnn_network, self.sentence_attention)
-        x_as_1 = self.sentence_level_network(x_s, self.sentence_cnn_network_1, self.sentence_attention_1)
+        x_as = self.sentence_level_network(x_s, self.sentence_cnn_network, self.sentence_attention, lda_groups)
         x_as = BackPropagationGate.apply(x_as)
-        x_as_1 = BackPropagationGate.apply(x_as_1)
+        if self.training:
+            x_as_1 = self.sentence_level_network(x_s, self.sentence_cnn_network_1, self.sentence_attention_1, lda_groups)
+            x_as_1 = BackPropagationGate.apply(x_as_1)
         
         # Aspect-Level Network
         x_ar = self.aspect_level_network(x_as, lda_groups, self.aspect_attention)
-        x_ar_1 = self.aspect_level_network(x_as, lda_groups, self.aspect_attention_1)
-        x_ar_2 = self.aspect_level_network(x_as_1, lda_groups, self.aspect_attention_2)
-        x_ar_3 = self.aspect_level_network(x_as_1, lda_groups, self.aspect_attention_3)
+        if self.training:
+            x_ar_1 = self.aspect_level_network(x_as, lda_groups, self.aspect_attention_1)
+            x_ar_2 = self.aspect_level_network(x_as_1, lda_groups, self.aspect_attention_2)
+            x_ar_3 = self.aspect_level_network(x_as_1, lda_groups, self.aspect_attention_3)
+            return x_ar, x_ar_1, x_ar_2, x_ar_3
 
-        return x_ar, x_ar_1, x_ar_2, x_ar_3
+        return x_ar

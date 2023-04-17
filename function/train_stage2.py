@@ -17,7 +17,6 @@ def train_stage2_model(args,
                        co_attentions, 
                        fc_layers_stage2, 
                        *, 
-                       stage1_param_path,
                        bp_gate,
                        criterion,
                        models_param, 
@@ -26,11 +25,6 @@ def train_stage2_model(args,
     # For recording history usage
     t_loss_list_stage2, t_acc_list_stage2 , v_loss_list_stage2, v_acc_list_stage2 = [], [], [], []
     save_param = {}
-
-    # Load stage1 according to checkpoint
-    # checkpoint = torch.load(stage1_param_path)
-    # user_network_stage1.load_state_dict(checkpoint["user_network_stage1"])
-    # item_network_stage1.load_state_dict(checkpoint["item_network_stage1"])
 
     print("-------------------------- STAGE2 START --------------------------")
     for epoch in range(args["epoch_stage2"]):
@@ -59,15 +53,15 @@ def train_stage2_model(args,
             # Exacute models
             user_review_emb, item_review_emb, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, labels = batch
             u_batch_size, i_batch_size = len(user_review_emb), len(item_review_emb)
-            user_logits, _, _, _ = user_network_stage1(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
-            item_logits, _, _, _ = item_network_stage1(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
+            user_logits = user_network_stage1(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
+            item_logits = item_network_stage1(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
             urf, urf_1 = user_review_network(user_logits, u_batch_size)
             irf, irf_1 = item_review_network(item_logits, u_batch_size)
             urf = bp_gate.apply(urf)
             urf_1 = bp_gate.apply(urf_1)
             irf = bp_gate.apply(irf)
             irf_1 = bp_gate.apply(irf_1)
-            w_urf, w_urf_1, w_urf_2, w_urf_3, w_irf, w_irf_1, w_irf_2, w_irf_3 = co_attentions(urf, urf, urf_1, urf_1, irf, irf, irf_1, irf_1)
+            w_urf, w_urf_1, w_urf_2, w_urf_3, w_irf, w_irf_1, w_irf_2, w_irf_3 = co_attentions(urf, irf, urf, urf_1, urf_1, irf, irf_1, irf_1)
             
             user_feature = torch.cat((w_urf, user_mf_emb.to(args["device"])), dim=1)
             item_feature = torch.cat((w_irf, item_mf_emb.to(args["device"])), dim=1)
@@ -81,9 +75,7 @@ def train_stage2_model(args,
             fc_input_1 = torch.cat((user_feature_1, item_feature_1), dim=1)
             fc_input_2 = torch.cat((user_feature_2, item_feature_2), dim=1)
             fc_input_3 = torch.cat((user_feature_3, item_feature_3), dim=1)
-
             logits, soft_label_1, soft_label_2, soft_label_3 = fc_layers_stage2(fc_input, fc_input_1, fc_input_2, fc_input_3)
-
 
             # model.train()  
             loss = ((1-args["trade_off_stage2"])*criterion(logits.reshape(labels.size()), labels.to(args["device"]).float())
@@ -102,7 +94,6 @@ def train_stage2_model(args,
 
             # Update the parameters with computed gradients.
             optimizer.step()
-            
             
             # Output after sigmoid is greater than 0.5 will be considered as 1, else 0.
             result_logits = torch.where(logits > 0.5, 1, 0).squeeze(dim=-1)
@@ -159,15 +150,15 @@ def train_stage2_model(args,
                 # Exacute models       
                 user_review_emb, item_review_emb, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, labels = batch
                 u_batch_size, i_batch_size = len(user_review_emb), len(item_review_emb)
-                user_logits, _, _, _ = user_network_stage1(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
-                item_logits, _, _, _ = item_network_stage1(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
-                urf, _ = user_review_network(user_logits, u_batch_size)
-                irf, _ = item_review_network(item_logits, i_batch_size)
-                w_urf, _, _, _, w_irf, _, _, _ = co_attentions(urf, _, _, _, irf, _, _, _)
+                user_logits = user_network_stage1(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
+                item_logits = item_network_stage1(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
+                urf = user_review_network(user_logits, u_batch_size)
+                irf = item_review_network(item_logits, i_batch_size)
+                w_urf, w_irf = co_attentions(urf, irf)
                 user_feature = torch.cat((w_urf, user_mf_emb.to(args["device"])), dim=1)
                 item_feature = torch.cat((w_irf, item_mf_emb.to(args["device"])), dim=1)
                 fc_input = torch.cat((user_feature, item_feature), dim=1)
-                logits, _, _, _ = fc_layers_stage2(fc_input,)
+                logits= fc_layers_stage2(fc_input)
 
                 # We can still compute the loss (but not the gradient).
                 loss = criterion(torch.squeeze(logits, dim=1), labels.to(args["device"]).float())
@@ -197,9 +188,9 @@ def train_stage2_model(args,
         valid_recall = sum(valid_recalls) / len(valid_recalls)
         valid_f1 = sum(valid_f1s) / len(valid_f1s)
 
-        print(f"[ Valid stage2 | {epoch + 1:03d}/{n_epochs:03d} ] loss = {valid_loss:.5f}, acc = {valid_acc:.4f}, precision = {valid_precision:.4f}, recall = {valid_recall:.4f}, f1 = {valid_f1}")
+        print(f"[ Valid stage2 | {epoch + 1:03d}/{n_epochs:03d} ] loss = {valid_loss:.5f}, acc = {valid_acc:.4f}, precision = {valid_precision:.4f}, recall = {valid_recall:.4f}, f1 = {valid_f1:.4f}")
         with open('output/history/stage2.csv','a') as file:
-            file.write(time.strftime("%m-%d %H:%M")+","+f"valid,stage2,{epoch + 1:03d}/{n_epochs:03d},{valid_loss:.5f},{valid_acc:.4f},{valid_precision:.4f},{valid_recall:.4f},{valid_f1}" + "\n")
+            file.write(time.strftime("%m-%d %H:%M")+","+f"valid,stage2,{epoch + 1:03d}/{n_epochs:03d},{valid_loss:.5f},{valid_acc:.4f},{valid_precision:.4f},{valid_recall:.4f},{valid_f1:.4f}" + "\n")
 
         # Record history
         t_loss_list_stage2.append(train_loss)

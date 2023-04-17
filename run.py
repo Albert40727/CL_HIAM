@@ -15,22 +15,19 @@ from function.review_dataset import ReviewDataset, ReviewDataseStage1
 from function.train import train_model, draw_acc_curve, draw_loss_curve
 from function.train_stage1 import train_stage1_model, draw_acc_curve_stage1, draw_loss_curve_stage1
 from function.train_stage2 import train_stage2_model, draw_acc_curve_stage2, draw_loss_curve_stage2
+from function.test import test_model, test_collab_model
 
                                                                    
 def main(**args):
 
     # Dataset/loader
-    train_dataset = ReviewDataset(args, target="train")
-    val_dataset = ReviewDataset(args, target="val")
+    train_dataset = ReviewDataset(args, mode="train")
+    val_dataset = ReviewDataset(args, mode="val")
     train_loader = DataLoader(train_dataset, batch_size=args["batch_size"], shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=args["batch_size"], shuffle=True)
-
-    train_dataset_stage1 = ReviewDataseStage1(args, target="train")
-    val_dataset_stage1 = ReviewDataseStage1(args, target="val")
-    train_loader_stage1 = DataLoader(train_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
-    val_loader_stage1 = DataLoader(val_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
     
-    if not args["collab_learning"]:
+    # Traing base model
+    if not args["collab_learning"] and args["train"]:
         # Init model
         user_network_model = HianModel(args).to(device)
         item_network_model = HianModel(args).to(device)
@@ -38,9 +35,9 @@ def main(**args):
         fc_layer = FcLayer().to(device)
 
         # Loss criteria
-        criterion = nn.CrossEntropyLoss()
-        params = list(user_network_model.parameters()) + list(item_network_model.parameters()) + list(co_attentions.parameters()) + list(fc_layer.parameters())
-        optimizer = torch.optim.Adam(params, lr=1e-4, weight_decay=1e-5)
+        criterion = nn.MSELoss()
+        params = list(user_network_model.parameters()) + list(item_network_model.parameters()) + list(co_attention.parameters()) + list(fc_layer.parameters())
+        optimizer = torch.optim.Adam(params, lr=1e-3, weight_decay=1e-4)
 
         # Training 
         train_loss, train_acc, val_loss, val_acc, save_param = \
@@ -52,19 +49,27 @@ def main(**args):
             item_network_model, 
             co_attention, 
             fc_layer, 
-            criterion=criterion, 
-            models_params=params, 
-            optimizer=optimizer)
+            criterion = criterion, 
+            models_params = params, 
+            optimizer = optimizer)
 
         # Save model
-        PATH = args["model_save_path_base"] + "model_base_{}.pt".format(time.strftime("%m%d%H%M%S"))
-        torch.save(save_param, PATH)
+        BASE_PATH = args["model_save_path_base"] + "model_base_{}.pt".format(time.strftime("%m%d%H%M%S"))
+        torch.save(save_param, BASE_PATH)
         
         # Plot loss & acc curves
         draw_loss_curve(train_loss, val_loss)
         draw_acc_curve(train_acc, val_acc)
 
-    elif args["collab_learning"]:
+    # Train collab model
+    elif args["collab_learning"] and args["train"]:
+        
+        # Create stage1 dataset and loader
+        train_dataset_stage1 = ReviewDataseStage1(args, mode="train")
+        val_dataset_stage1 = ReviewDataseStage1(args, mode="val")
+        train_loader_stage1 = DataLoader(train_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
+        val_loader_stage1 = DataLoader(val_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
+
         # Init model
         # Stage 1
         user_network_stage1 = HianCollabStage1(args).to(device)
@@ -82,9 +87,9 @@ def main(**args):
         bp_gate = BackPropagationGate()
 
         # Loss criteria
-        user_criterion_stage1 = nn.CrossEntropyLoss()
-        item_criterion_stage1 = nn.CrossEntropyLoss()
-        criterion_stage2 = nn.CrossEntropyLoss()
+        user_criterion_stage1 = nn.BCELoss()
+        item_criterion_stage1 = nn.BCELoss()
+        criterion_stage2 = nn.BCELoss()
 
         # Parameters
         user_params_stage1 = (list(user_network_stage1.parameters()) + 
@@ -114,14 +119,18 @@ def main(**args):
             item_network_stage1, 
             user_fc_layer_stage1,
             item_fc_layer_stage1,
-            criterions=[user_criterion_stage1, item_criterion_stage1], 
-            models_params=[user_params_stage1, item_params_stage1], 
-            optimizers=[user_optimizer_stage1, item_optimizer_stage1])
+            criterions = [user_criterion_stage1, item_criterion_stage1], 
+            models_params = [user_params_stage1, item_params_stage1], 
+            optimizers = [user_optimizer_stage1, item_optimizer_stage1])
         
         # Save stage1 model
         # Make sure you've change the STAGE1_PATH if you only want to train stage2
         STAGE1_PATH = args["model_save_path_cl"] + "model_cl_stage1_{}.pt".format(time.strftime("%m%d%H%M%S"))
         torch.save(save_param_stage1, STAGE1_PATH)
+
+        # Load stage1 model before training stage2
+        user_network_stage1.load_state_dict(save_param_stage1["user_network_stage1"])
+        item_network_stage1.load_state_dict(save_param_stage1["item_network_stage1"])
 
         # Stage2
         t_loss_stage2, t_acc_stage2, v_loss_stage2, v_acc_stage2, save_param_stage2 = \
@@ -135,7 +144,6 @@ def main(**args):
             item_review_network, 
             co_attentions, 
             fc_layers_stage2, 
-            stage1_param_path = STAGE1_PATH, 
             bp_gate = bp_gate,
             criterion = criterion_stage2, 
             models_param = params_stage2, 
@@ -151,7 +159,70 @@ def main(**args):
         
         # Plot stage2 loss & acc
         draw_loss_curve_stage2(t_loss_stage2, v_loss_stage2)
-        draw_acc_curve_stage2(t_acc_stage2, v_acc_stage2)       
+        draw_acc_curve_stage2(t_acc_stage2, v_acc_stage2)
+
+    # Test model
+    if not args["collab_learning"] and args["test"]:
+        if args["train"]:
+            checkpoint = torch.load(BASE_PATH)
+        else:
+            SPEC_PATH = args["model_save_path_base"] + "##########.pt" # Specify .pt you want to load
+            checkpoint = torch.load(SPEC_PATH)
+
+        # Init dataset and loader    
+        test_dataset = ReviewDataset(args, mode="test")
+        test_loader = DataLoader(test_dataset, batch_size=args["batch_size"], shuffle=True)
+
+        # Init model
+        user_network_model = HianModel(args).to(device).load_state_dict(checkpoint["user_review_network"])
+        item_network_model = HianModel(args).to(device).load_state_dict(checkpoint["item_review_network"])
+        co_attention = CoattentionNet(args, args["co_attention_emb_dim"]).to(device).load_state_dict(checkpoint["co_attention"])
+        fc_layer = FcLayer().to(device).load_state_dict(checkpoint["fc_layer"])
+
+        # Exacute test
+        test_model(
+            args,
+            test_loader,
+            user_network_model,
+            item_network_model,
+            co_attention,
+            fc_layer,
+        )
+
+    elif args["collab_learning"] and args["test"]:
+        if args["train"]:
+            checkpoint_stage1 = torch.load(STAGE1_PATH)
+            checkpoint_stage2 = torch.load(STAGE2_PATH)
+        else:
+            SPEC_PATH_STAGE1 = args["model_save_path_cl"] + "model_cl_stage1_0412061332.pt" # Specify .pt you want to load
+            SPEC_PATH_STAGE2 = args["model_save_path_cl"] + "model_cl_stage2_0412121305.pt" # Specify .pt you want to load
+            checkpoint_stage1 = torch.load(SPEC_PATH_STAGE1)
+            checkpoint_stage2 = torch.load(SPEC_PATH_STAGE2)
+
+        # Init dataset and loader    
+        test_dataset = ReviewDataset(args, mode="test")
+        test_loader = DataLoader(test_dataset, batch_size=args["batch_size"], shuffle=True)
+
+        # Init model
+        user_network_stage1 = HianCollabStage1(args).to(device).load_state_dict(checkpoint_stage1["user_network_stage1"])
+        item_network_stage1 = HianCollabStage1(args).to(device).load_state_dict(checkpoint_stage1["item_network_stage1"])
+        user_review_network = ReviewNetworkStage2(args).to(device).load_state_dict(checkpoint_stage2["user_review_network"])
+        item_review_network = ReviewNetworkStage2(args).to(device).load_state_dict(checkpoint_stage2["item_review_network"])
+        co_attentions = CoattentionNetStage2(args, args["co_attention_emb_dim"]).to(device).load_state_dict(checkpoint_stage2["co_attention_stage2"])
+        fc_layers_stage2 = FcLayerStage2().to(device).load_state_dict(checkpoint_stage2["fc_layer_stage2"])
+
+        # Exacute test
+        test_collab_model(
+            args,
+            test_loader,
+            user_network_stage1,
+            item_network_stage1,
+            user_review_network,
+            item_review_network,
+            co_attentions,
+            fc_layers_stage2,
+        )
+
 
     
 if __name__ == "__main__":
@@ -160,8 +231,11 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     args = {
         "device" : device,
+        "train": True, # Turn off to test only 
+        "test": True, # Turn off to train only 
         "train_data_dir" : r'../data/train_df.pkl',
         "val_data_dir" : r'../data/val_df.pkl',
+        "test_data_dir" : r'../data/test_df.pkl',
         "user_data_dir" : r'../data/user_emb/',
         "item_data_dir" : r'../data/item_emb/',
         "user_mf_data_dir" : r'../data/train_user_mf_emb.pkl',
@@ -178,7 +252,7 @@ if __name__ == "__main__":
         "lda_group_num": 6, # Include default 0 group. 
         "word_cnn_ksize" : 5,   # odd number 
         "sentence_cnn_ksize" : 3,   # odd number 
-        "epoch" : 20,
+        "epoch" : 40,
         "batch_size": 32,
         "collab_learning": True,
         "epoch_stage1" : 10,

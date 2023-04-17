@@ -18,11 +18,6 @@ class CoattentionNet(nn.Module):
         self.w_hv = nn.Parameter(torch.randn(k, 1))
         self.w_hq = nn.Parameter(torch.randn(k, 1))
 
-    def forward(self, user_emb, item_emb):
-        q_user, v_item = self.parallel_co_attention(user_emb, item_emb, self.W_b, self.W_v, self.W_q, self.w_hv, self.w_hq, self.tanh)
-        return q_user, v_item
-
-
     def parallel_co_attention(self, Q, V, W_b, W_v, W_q, w_hv, w_hq, tanh):  
         # Original paper:   V : B x 512 x 196(Seq), Q : B x L x 512
         # Our paper:        V : B x 50 x 256, Q : B x 10 x 256
@@ -42,3 +37,7 @@ class CoattentionNet(nn.Module):
         q = torch.squeeze(torch.matmul(a_q, Q))                  # B x 512
 
         return q, v
+    
+    def forward(self, user_emb, item_emb):
+        q_user, v_item = self.parallel_co_attention(user_emb, item_emb, self.W_b, self.W_v, self.W_q, self.w_hv, self.w_hq, self.tanh)
+        return q_user, v_item

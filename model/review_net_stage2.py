@@ -7,17 +7,19 @@ class ReviewNetworkStage2(HianModel):
         super().__init__(args)
 
         # Review-Level Network
-        self.review_attention_1 = nn.MultiheadAttention(512, num_heads=1)
+        self.review_attention_1 = nn.MultiheadAttention(512, num_heads=1, batch_first=True)
 
     def forward(self, x, batch_size):
         #Review-Level Network
         x_rf = self.review_level_network(x, self.review_attention, batch_size=batch_size)
-        x_rf_1 = self.review_level_network(x, self.review_attention_1, batch_size=batch_size)
-
         x_rf = BackPropagationGate.apply(x_rf)
-        x_rf_1 = BackPropagationGate.apply(x_rf_1)
 
-        return x_rf, x_rf_1
+        if self.training:
+            x_rf_1 = self.review_level_network(x, self.review_attention_1, batch_size=batch_size)
+            x_rf_1 = BackPropagationGate.apply(x_rf_1)
+            return x_rf, x_rf_1
+        
+        return x_rf
     
 
 

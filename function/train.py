@@ -80,9 +80,9 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
         train_recall = sum(train_recalls) / len(train_recalls)
         train_f1 = sum(train_f1s) / len(train_f1s)
 
-        print(f"[ Train | {epoch + 1:03d}/{n_epochs:03d} ] loss = {train_loss:.5f}, acc = {train_acc:.4f}, precision = {train_precision:.4f}, recall = {train_recall:.4f}, f1 = {train_f1}")
+        print(f"[ Train | {epoch + 1:03d}/{n_epochs:03d} ] loss = {train_loss:.5f}, acc = {train_acc:.4f}, precision = {train_precision:.4f}, recall = {train_recall:.4f}, f1 = {train_f1:.4f}")
         with open('output/history/base.csv','a') as file:
-            file.write(time.strftime("%m-%d %H:%M")+","+f"train,base,{epoch + 1:03d}/{n_epochs:03d},{train_loss:.5f},{train_acc:.4f},{train_precision:.4f},{train_recall:.4f},{train_f1}" + "\n")
+            file.write(time.strftime("%m-%d %H:%M")+","+f"train,base,{epoch + 1:03d}/{n_epochs:03d},{train_loss:.5f},{train_acc:.4f},{train_precision:.4f},{train_recall:.4f},{train_f1:.4f}" + "\n")
 
         # ---------- Validation ----------
         # Make sure the model is in eval mode so that some modules like dropout are disabled and work normally.
@@ -115,13 +115,13 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
                 output_logits = fc_layer(fc_input)
 
                 # We can still compute the loss (but not the gradient).
-                loss = criterion(torch.squeeze(output_logits, dim=1), labels.to(args["device"]).float())
+                labels = labels.to(args["device"])
+                loss = criterion(torch.squeeze(output_logits, dim=-1), labels.float())
 
-                # Output after sigmoid is greater than 1.3(p>0.8) will be considered as 1, else 0.
-                result_logits = torch.where(output_logits > 0.8, 1, 0).squeeze(dim=-1)
+                # Output after sigmoid is greater than "Q" will be considered as 1, else 0.
+                result_logits = torch.where(output_logits > 0.5, 1, 0).squeeze(dim=-1)
 
                 # Compute the information for current batch.
-                result_logits = torch.where(output_logits > 0.8, 1, 0).squeeze(dim=-1)
                 acc = (result_logits == labels).float().mean()
                 precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
                 recall = recall_score(labels.cpu(), result_logits.cpu())
@@ -143,9 +143,9 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
         valid_recall = sum(valid_recalls) / len(valid_recalls)
         valid_f1 = sum(valid_f1s) / len(valid_f1s)
 
-        print(f"[ Valid | {epoch + 1:03d}/{n_epochs:03d} ] loss = {valid_loss:.5f}, acc = {valid_acc:.4f}, precision = {valid_precision:.4f}, recall = {valid_recall:.4f}, f1 = {valid_f1}")
+        print(f"[ Valid | {epoch + 1:03d}/{n_epochs:03d} ] loss = {valid_loss:.5f}, acc = {valid_acc:.4f}, precision = {valid_precision:.4f}, recall = {valid_recall:.4f}, f1 = {valid_f1:.4f}")
         with open('output/history/base.csv','a') as file:
-            file.write(time.strftime("%m-%d %H:%M")+","+f"valid,base,{epoch + 1:03d}/{n_epochs:03d},{valid_loss:.5f},{valid_acc:.4f},{valid_precision:.4f},{valid_recall:.4f},{valid_f1}" + "\n")
+            file.write(time.strftime("%m-%d %H:%M")+","+f"valid,base,{epoch + 1:03d}/{n_epochs:03d},{valid_loss:.5f},{valid_acc:.4f},{valid_precision:.4f},{valid_recall:.4f},{valid_f1:.4f}" + "\n")
 
         # Record history
         t_loss_list.append(train_loss)
@@ -173,7 +173,7 @@ def draw_loss_curve(train_loss, valid_loss):
     plt.legend(loc="upper right")
     plt.title("Base Loss Curve")
     plt.savefig('output/plot/base/loss_base_{}.png'.format(time.strftime("%m%d%H%M%S")))
-    plt.show(block=False)
+    plt.show()
 
 def draw_acc_curve(train_acc, valid_acc):
     plt.plot(train_acc, color="deeppink", label="Train", marker='o')
@@ -183,4 +183,4 @@ def draw_acc_curve(train_acc, valid_acc):
     plt.legend(loc="upper right")
     plt.title("Base Acc Curve")
     plt.savefig('output/plot/base/acc_base_{}.png'.format(time.strftime("%m%d%H%M%S")))
-    plt.show(block=False)
+    plt.show()

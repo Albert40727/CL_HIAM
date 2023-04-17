@@ -237,8 +237,8 @@ def batch_train_stage1(args, review_emb, lda_groups, labels, *,
 def batch_val_stage1(args, review_emb, lda_groups, labels, 
                      *, target, network, fc_layers, criterion):
     # Exacute models 
-    arv, arv_1, arv_2, arv_3 = network(review_emb.to(args["device"]), lda_groups.to(args["device"]))
-    logits, _, _, _ = fc_layers(arv, arv_1, arv_2, arv_3)
+    arv = network(review_emb.to(args["device"]), lda_groups.to(args["device"]))
+    logits = fc_layers(arv)
 
     # We can still compute the loss (but not the gradient).
     loss = criterion(logits.reshape(labels.size()), labels.to(args["device"]).float())

@@ -5,12 +5,14 @@ import pandas as pd
 from torch.utils.data import Dataset
 
 class ReviewDataset(Dataset):
-    def __init__(self, args, *, target):
+    def __init__(self, args, *, mode):
         self.args = args
-        if target =="train":
+        if mode == "train":
             self.review_df = pd.read_pickle(args["train_data_dir"])
-        elif target =="val":
+        elif mode == "val":
             self.review_df = pd.read_pickle(args["val_data_dir"])
+        elif mode == "test":
+            self.review_df = pd.read_pickle(args["test_data_dir"])
         self.user_mf_df = pd.read_pickle(args["user_mf_data_dir"])
         self.item_mf_df = pd.read_pickle(args["item_mf_data_dir"])
       
@@ -57,15 +59,15 @@ class ReviewDataset(Dataset):
         user_mf_emb =  torch.from_numpy(self.user_mf_df[self.user_mf_df["UserID"]==userId]["MF_emb"].values[0])
         item_mf_emb =  torch.from_numpy(self.item_mf_df[self.item_mf_df["AppID"]==itemId]["MF_emb"].values[0])
 
-        return pad_user_emb, pad_item_emb, pad_user_lda, pad_item_lda, user_mf_emb, item_mf_emb, y
+        return pad_user_emb, pad_item_emb, pad_user_lda, pad_item_lda, user_mf_emb, item_mf_emb ,y
 
     def __len__(self):
         return len(self.review_df)
     
 
 class ReviewDataseStage1(ReviewDataset):
-    def __init__(self, args, *, target):
-        super().__init__(args, target=target)
+    def __init__(self, args, *, mode):
+        super().__init__(args, mode=mode)
 
     def __getitem__(self, idx):
 
@@ -122,6 +124,7 @@ class ReviewDataseStage1(ReviewDataset):
             pad_item_y = item_y[:self.args["max_review_item"]]
         else:
             pad_item_y[:item_y.size(0)] = item_y
+
 
         user_mf_emb = torch.from_numpy(self.user_mf_df[self.user_mf_df["UserID"]==userId]["MF_emb"].values[0])
         item_mf_emb = torch.from_numpy(self.item_mf_df[self.item_mf_df["AppID"]==itemId]["MF_emb"].values[0])
