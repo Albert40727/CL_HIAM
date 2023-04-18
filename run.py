@@ -87,9 +87,9 @@ def main(**args):
         bp_gate = BackPropagationGate()
 
         # Loss criteria
-        user_criterion_stage1 = nn.BCELoss()
-        item_criterion_stage1 = nn.BCELoss()
-        criterion_stage2 = nn.BCELoss()
+        user_criterion_stage1 = nn.CrossEntropyLoss()
+        item_criterion_stage1 = nn.CrossEntropyLoss()
+        criterion_stage2 = nn.CrossEntropyLoss()
 
         # Parameters
         user_params_stage1 = (list(user_network_stage1.parameters()) + 
@@ -105,7 +105,7 @@ def main(**args):
         
         user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=1e-4, weight_decay=1e-5)
         item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-4, weight_decay=1e-5)
-        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-4, weight_decay=1e-5)
+        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-3, weight_decay=1e-4)
 
         # Training 
         # Stage1 
@@ -166,7 +166,7 @@ def main(**args):
         if args["train"]:
             checkpoint = torch.load(BASE_PATH)
         else:
-            SPEC_PATH = args["model_save_path_base"] + "##########.pt" # Specify .pt you want to load
+            SPEC_PATH = args["model_save_path_base"] + "model_base_0417104349.pt" # Specify .pt you want to load
             checkpoint = torch.load(SPEC_PATH)
 
         # Init dataset and loader    
@@ -174,10 +174,14 @@ def main(**args):
         test_loader = DataLoader(test_dataset, batch_size=args["batch_size"], shuffle=True)
 
         # Init model
-        user_network_model = HianModel(args).to(device).load_state_dict(checkpoint["user_review_network"])
-        item_network_model = HianModel(args).to(device).load_state_dict(checkpoint["item_review_network"])
-        co_attention = CoattentionNet(args, args["co_attention_emb_dim"]).to(device).load_state_dict(checkpoint["co_attention"])
-        fc_layer = FcLayer().to(device).load_state_dict(checkpoint["fc_layer"])
+        user_network_model = HianModel(args).to(device)
+        user_network_model.load_state_dict(checkpoint["user_review_network"])
+        item_network_model = HianModel(args).to(device)
+        item_network_model.load_state_dict(checkpoint["item_review_network"])
+        co_attention = CoattentionNet(args, args["co_attention_emb_dim"]).to(device)
+        co_attention.load_state_dict(checkpoint["co_attention"])
+        fc_layer = FcLayer().to(device)
+        fc_layer.load_state_dict(checkpoint["fc_layer"])
 
         # Exacute test
         test_model(
@@ -204,12 +208,18 @@ def main(**args):
         test_loader = DataLoader(test_dataset, batch_size=args["batch_size"], shuffle=True)
 
         # Init model
-        user_network_stage1 = HianCollabStage1(args).to(device).load_state_dict(checkpoint_stage1["user_network_stage1"])
-        item_network_stage1 = HianCollabStage1(args).to(device).load_state_dict(checkpoint_stage1["item_network_stage1"])
-        user_review_network = ReviewNetworkStage2(args).to(device).load_state_dict(checkpoint_stage2["user_review_network"])
-        item_review_network = ReviewNetworkStage2(args).to(device).load_state_dict(checkpoint_stage2["item_review_network"])
-        co_attentions = CoattentionNetStage2(args, args["co_attention_emb_dim"]).to(device).load_state_dict(checkpoint_stage2["co_attention_stage2"])
-        fc_layers_stage2 = FcLayerStage2().to(device).load_state_dict(checkpoint_stage2["fc_layer_stage2"])
+        user_network_stage1 = HianCollabStage1(args).to(device)
+        user_network_stage1.load_state_dict(checkpoint_stage1["user_network_stage1"])
+        item_network_stage1 = HianCollabStage1(args).to(device)
+        item_network_stage1.load_state_dict(checkpoint_stage1["item_network_stage1"])
+        user_review_network = ReviewNetworkStage2(args).to(device)
+        user_review_network.load_state_dict(checkpoint_stage2["user_review_network"])
+        item_review_network = ReviewNetworkStage2(args).to(device)
+        item_review_network.load_state_dict(checkpoint_stage2["item_review_network"])
+        co_attentions = CoattentionNetStage2(args, args["co_attention_emb_dim"]).to(device)
+        co_attentions.load_state_dict(checkpoint_stage2["co_attention_stage2"])
+        fc_layers_stage2 = FcLayerStage2().to(device)
+        fc_layers_stage2.load_state_dict(checkpoint_stage2["fc_layer_stage2"])
 
         # Exacute test
         test_collab_model(
@@ -224,10 +234,8 @@ def main(**args):
         )
 
 
-    
 if __name__ == "__main__":
 
-    #Check CUDA 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     args = {
         "device" : device,

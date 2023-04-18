@@ -55,7 +55,6 @@ def test_model(args, test_loader, user_network, item_network, co_attention, fc_l
     
 
     # The average loss and accuracy for entire test set is the average of the recorded values.
-    test_loss = sum(test_loss) / len(test_loss)
     test_acc = sum(test_accs) / len(test_accs)
     test_precision = sum(test_precisions) / len(test_precisions)
     test_recall = sum(test_recalls) / len(test_recalls)
@@ -63,7 +62,7 @@ def test_model(args, test_loader, user_network, item_network, co_attention, fc_l
 
     print(f"[ Test base ] acc = {test_acc:.4f}, precision = {test_precision:.4f}, recall = {test_recall:.4f}, f1 = {test_f1:.4f}")
     with open('output/history/test_base.csv','a') as file:
-        file.write(time.strftime("%m-%d %H:%M")+","+f"test,base,{test_loss:.5f},{test_acc:.4f},{test_precision:.4f},{test_recall:.4f},{test_f1:.4f}" + "\n")
+        file.write(time.strftime("%m-%d %H:%M")+","+f"test,{test_acc:.4f},{test_precision:.4f},{test_recall:.4f},{test_f1:.4f}" + "\n")
     
 def test_collab_model(
         args,
@@ -110,7 +109,7 @@ def test_collab_model(
             user_feature = torch.cat((w_urf, user_mf_emb.to(args["device"])), dim=1)
             item_feature = torch.cat((w_irf, item_mf_emb.to(args["device"])), dim=1)
             fc_input = torch.cat((user_feature, item_feature), dim=1)
-            logits= fc_layers_stage2(fc_input)
+            logits = fc_layers_stage2(fc_input)
 
             # Output after sigmoid is greater than 0.5 will be considered as 1, else 0.
             result_logits = torch.where(logits > 0.5, 1, 0).squeeze(dim=-1)
@@ -130,13 +129,12 @@ def test_collab_model(
             test_f1s.append(f1)
 
     # The average loss and accuracy for entire testation set is the average of the recorded values.
-    test_loss = sum(test_loss) / len(test_loss)
     test_acc = sum(test_accs) / len(test_accs)
     test_precision = sum(test_precisions) / len(test_precisions)
     test_recall = sum(test_recalls) / len(test_recalls)
     test_f1 = sum(test_f1s) / len(test_f1s)
 
-    print(f"[ Test Collab ] loss = {test_loss:.5f}, acc = {test_acc:.4f}, precision = {test_precision:.4f}, recall = {test_recall:.4f}, f1 = {test_f1:.4f}")
+    print(f"[ Test Collab ] acc = {test_acc:.4f}, precision = {test_precision:.4f}, recall = {test_recall:.4f}, f1 = {test_f1:.4f}")
     with open('output/history/test_collab.csv','a') as file:
-        file.write(time.strftime("%m-%d %H:%M")+","+f"test,{test_loss:.5f},{test_acc:.4f},{test_precision:.4f},{test_recall:.4f},{test_f1:.4f}" + "\n")
+        file.write(time.strftime("%m-%d %H:%M")+","+f"test,{test_acc:.4f},{test_precision:.4f},{test_recall:.4f},{test_f1:.4f}" + "\n")
                 

@@ -19,23 +19,24 @@ class FcLayerStage1(nn.Module):
         self.fc1_3 = nn.Linear(512, 1)
 
     def forward(self, x, x1=None, x2=None, x3=None):
+
         x = self.fc1(x)
         x = self.dropout(x)
-        output = torch.sigmoid(x)
+        x = torch.sigmoid(x)
         
         if self.training:
+
             x1 = self.fc1_1(x1)
             x1 = self.dropout_1(x1)
-            soft_label_1 = torch.sigmoid(x1)
+            x1 = torch.sigmoid(x1)
 
             x2 = self.fc1_2(x2)
             x2 = self.dropout_2(x2)
-            soft_label_2 = torch.sigmoid(x2)
+            x2 = torch.sigmoid(x2)
 
             x3 = self.fc1_3(x3)
             x3 = self.dropout_3(x3)
-            soft_label_3 = torch.sigmoid(x3)
+            x3 = torch.sigmoid(x3)
 
-            return output, soft_label_1, soft_label_2, soft_label_3
-        
-        return output
+            return x, x1, x2, x3
+        return x

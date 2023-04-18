@@ -10,8 +10,8 @@ def train_stage1_model(args,
                        val_loader,                     
                        user_network, 
                        item_network,
-                       user_fc_layers_stage1,
-                       item_fc_layers_stage1,
+                       user_fc_layer_stage1,
+                       item_fc_layer_stage1,
                        *, 
                        criterions,
                        models_params, 
@@ -30,8 +30,8 @@ def train_stage1_model(args,
         
         user_network.train()
         item_network.train()
-        user_fc_layers_stage1.train()
-        item_fc_layers_stage1.train()
+        user_fc_layer_stage1.train()
+        item_fc_layer_stage1.train()
         
         # These are used to record information in training.
         user_train_loss_stage1, user_train_accs_stage1, user_train_precisions_stage1, user_train_recalls_stage1, user_train_f1s_stage1 = [], [], [], [], []
@@ -44,7 +44,7 @@ def train_stage1_model(args,
             batch_train_stage1(args, user_review_emb, user_lda_groups, user_labels,
                                target = "user",
                                network = user_network, 
-                               fc_layers = user_fc_layers_stage1,
+                               fc_layers = user_fc_layer_stage1,
                                criterion = criterions[0], 
                                models_params = models_params[0], 
                                optimizers = optimizers[0])
@@ -60,7 +60,7 @@ def train_stage1_model(args,
             batch_train_stage1(args, item_review_emb, item_lda_groups, item_labels,
                                target = "item",
                                network = item_network,
-                               fc_layers = item_fc_layers_stage1, 
+                               fc_layers = item_fc_layer_stage1, 
                                criterion = criterions[1], 
                                models_params = models_params[1], 
                                optimizers = optimizers[1])
@@ -99,8 +99,8 @@ def train_stage1_model(args,
         # Make sure the model is in eval mode so that some modules like dropout are disabled and work normally.
         user_network.eval()
         item_network.eval()
-        user_fc_layers_stage1.eval()
-        item_fc_layers_stage1.eval()
+        user_fc_layer_stage1.eval()
+        item_fc_layer_stage1.eval()
 
         # These are used to record information in validation.
         user_val_loss_stage1, user_val_accs_stage1, user_val_precisions_stage1, user_val_recalls_stage1, user_val_f1s_stage1 = [], [], [], [], []
@@ -118,7 +118,7 @@ def train_stage1_model(args,
                 batch_val_stage1(args, user_review_emb, user_lda_groups, user_labels,
                                  target = "user",
                                  network = user_network,
-                                 fc_layers = user_fc_layers_stage1, 
+                                 fc_layers = user_fc_layer_stage1, 
                                  criterion = criterions[0])
                 # Record the usernetwork information.
                 user_val_loss_stage1.append(loss)
@@ -131,7 +131,7 @@ def train_stage1_model(args,
                 batch_val_stage1(args, item_review_emb, item_lda_groups, item_labels,
                                  target = "item",
                                  network = item_network,
-                                 fc_layers = item_fc_layers_stage1, 
+                                 fc_layers = item_fc_layer_stage1, 
                                  criterion = criterions[1])
                 
                 # Record the itemnetwork information.
@@ -179,14 +179,14 @@ def train_stage1_model(args,
         if user_val_loss == min(v_user_loss_list_stage1):
             save_param.update({
                 'user_network_stage1': user_network.state_dict(),
-                'user_fc_layer_stage1' : user_fc_layers_stage1.state_dict(),
+                'user_fc_layer_stage1' : user_fc_layer_stage1.state_dict(),
                 'user_optimizer_stage1' : optimizers[0].state_dict(),
                 })
 
         if item_val_loss == min(v_item_loss_list_stage1):
             save_param.update({
                 'item_network_stage1': item_network.state_dict(),
-                'item_fc_layer_stage1' : item_fc_layers_stage1.state_dict(),
+                'item_fc_layer_stage1' : item_fc_layer_stage1.state_dict(),
                 'item_optimizer_stage1' :  optimizers[1].state_dict(),
                 })
 
@@ -213,7 +213,7 @@ def batch_train_stage1(args, review_emb, lda_groups, labels, *,
     loss.backward()
 
     # Clip the gradient norms for stable training.
-    grad_norm = nn.utils.clip_grad_norm_(models_params, max_norm=10)
+    nn.utils.clip_grad_norm_(models_params, max_norm=1)
 
     # Update the parameters with computed gradients.
     optimizers.step()
@@ -230,7 +230,6 @@ def batch_train_stage1(args, review_emb, lda_groups, labels, *,
 
     # rate = sum(result_logits==labels)/sum(labels)
     # print(f"loss:{loss:.4f}", f"result logit: {sum(result_logits)}", f"labels: {sum(labels)}", f"acc: {rate:.3f}", f"precision: {precision:.3f}", f"recall: {recall:.3f}")
-
 
     return loss.item(), acc, precision, recall, f1
 

@@ -4,44 +4,47 @@ import torch
 
 class HianModel(nn.Module):
     """
-    B: Batch, N: User/Item max review, W: Max Word, S:Max Sentence, A:Aspect, D:Emb Dimension 
+    B: Batch, R: User/Item max review, W: Max Word, S:Max Sentence, A:Aspect, D:Emb Dimension 
 
-            input:  x: 32, N, 250, 768 (B, N, W*S, D)
+            input:  x: 32, R, 250, 768 (B, R, W*S, D)
                             |reshape
                             v
-                    x: 32*N, 250, 768 (B*N, W*S, D)
+                    x: 32*R, 250, 768 (B*R, W*S, D)
                             |
                             |w_cnn_network + attention
                             v
-                    x: 32*N, 10, D  (B*N, S, D)
+                    x: 32*R, 10, D  (B*R, S, D)
                             |
                             |s_cnn_network + attention
                             v 
-                    x: 32*N, 10, D  (B*N, S, D)
+                    x: 32*R, 10, D  (B*R, S, D)
                             |
                             |get_aspect_emb_from_sent (LDA) 
                             v             
-                    x: 32*N, 6, D   (B*N, A, D)
+                    x: 32*R, 6, D   (B*R, A, D)
                             |
                             |aspect attention
                             v
-                    x: 32, N, D  (B, N, D)
+                    x: 32*R, D  (B*R, D)
                             |
                             |review_network
                             v  
-                        x: 32, N, D
+                        x: 32, D
                             |
                             |co_attention (Outside HianModel)
                             v
                         x: 32, D                 
 
+    Item network for example:
     (Some emb might be permuted during training due to the Conv1d input format)
-    Word Emb:               torch.Size([50, 250, 768])
-    Sentence Emb:           torch.Size([50, 10, 512])
-    Weighted Sentence Emb:  torch.Size([50, 10, 512])
-    Aspect Emb:             torch.Size([50, 6, 512])
-    Aspect Review Emb:      torch.Size([50, 512])
-    User/Item Emb:          torch.Size([512]) (after co-attention) 
+    Input Emb:              torch.Size([32, 50, 250, 768])
+    Word Emb:               torch.Size([32*50, 250, 768])
+    Sentence Emb:           torch.Size([32*50, 10, 512])
+    Weighted Sentence Emb:  torch.Size([32*50, 10, 512])
+    Aspect Emb:             torch.Size([32*50, 6, 512])
+    Aspect Review Emb:      torch.Size([32*50, 512])
+    Item Reiew feature:     torch.Size([32, 512])
+    Item Emb:               torch.Size([32, 512]) (after co-attention) 
     """
 
     def __init__(self, args):
@@ -79,35 +82,11 @@ class HianModel(nn.Module):
         x = F.pad(x, (self.word_pad_size, self.word_pad_size), "constant", 0) # same to keras: padding = same
         x = word_cnn(x)
         x = torch.permute(x, [0, 2, 1])
-        attn_output = word_attention(x, key=x, value=x, need_weights=False)
+        attn_output, att_weight = word_attention(x, x, x, need_weights=True)
         x = x * attn_output[0] 
         x = self.word_weighted_sum(x, self.args["max_sentence"])
-        x = torch.permute(x, [0, 2, 1])
         return x
-    
-    def sentence_level_network(self, x, sent_cnn, sent_attention, lda_groups):
-        x = F.pad(x, (self.sent_pad_size, self.sent_pad_size), "constant", 0) # same to keras: padding = same
-        x = sent_cnn(x)
-        x = torch.permute(x, [0, 2, 1])
-        sent_mask = (lda_groups == False).reshape(-1, lda_groups.size(2))
-        attn_output = sent_attention(x, x, x, key_padding_mask=sent_mask, need_weights=False)
-        x = x * attn_output[0]
-        return x 
-    
-    def aspect_level_network(self, x, lda_groups, aspect_attention):
-        lda_groups = lda_groups.reshape(-1, lda_groups.size(2))
-        x, aspect_att_mask = self.get_aspect_emb_from_sent(x, lda_groups, self.lda_group_num) 
-        attn_output = aspect_attention(x, x, x, key_padding_mask=aspect_att_mask.to(self.args["device"]), need_weights=False)
-        x = torch.sum(x * attn_output[0], 1) #weighted sum
-        return x
-
-    def review_level_network(self, x, review_attetion, *, batch_size):
-        attn_output = review_attetion(x, x, x, need_weights=False)
-        x = x * attn_output[0]
-        x = x.reshape(batch_size, -1, x.size(1))
-        return x 
-
-    
+        
     def word_weighted_sum(self, input_tensor, max_sentence):
         """
         Weighted sum words' emb into sentences' emb.
@@ -118,12 +97,38 @@ class HianModel(nn.Module):
 
         return sentence_tensor
     
+    def sentence_level_network(self, x, sent_cnn, sent_attention, lda_groups):
+        x = torch.permute(x, [0, 2, 1])
+        x = F.pad(x, (self.sent_pad_size, self.sent_pad_size), "constant", 0) # same to keras: padding = same
+        x = sent_cnn(x)
+        x = torch.permute(x, [0, 2, 1]) 
+        # Mask generate
+        k_sent_mask = (lda_groups == False).reshape(-1, lda_groups.size(2))
+        sent_mask = torch.logical_or(k_sent_mask.unsqueeze(dim=-1), k_sent_mask.unsqueeze(dim=1))
+        # attn_output, sent_att_weight = sent_attention(x, x, x, attn_mask=sent_mask, need_weights=True)
+        attn_output, sent_att_weight = sent_attention(x, x, x, need_weights=True)
+        attn_output = torch.nan_to_num(attn_output, nan=0)
+        x = x * attn_output[0]
+        return x 
+    
+    def aspect_level_network(self, x, lda_groups, aspect_attention):
+        x, aspect_att_mask = self.get_aspect_emb_from_sent(x, lda_groups, self.lda_group_num)
+        x = torch.nan_to_num(x, nan=1e-10) 
+        
+        # attn_output, att_weight = aspect_attention(x, x, x, attn_mask=aspect_att_mask.to(self.args["device"]), need_weights=True)
+        attn_output, att_weight = aspect_attention(x, x, x, need_weights=True)
+        attn_output = torch.nan_to_num(attn_output, nan=0)
+        x = x * attn_output[0]
+        x = torch.nan_to_num(x, nan=0)
+        x = torch.sum(x, dim=1) #weighted sum
+        return x
+    
     def get_aspect_emb_from_sent(self, input_tensor, lda_groups, group_num):
         """
         Weighted sum sentences' emb according to their LDA groups respectively.  
         """
-        aspect_att_mask = torch.zeros((input_tensor.size(0), group_num))
-        lda_groups = torch.unsqueeze(lda_groups, dim=-1)
+        k_aspect_att_mask = torch.zeros((input_tensor.size(0), group_num), dtype=torch.bool)
+        lda_groups = torch.unsqueeze(lda_groups.reshape(-1, lda_groups.size(2)), dim=-1)
         group_tensor_list = []
 
         for group in range(group_num):
@@ -135,14 +140,29 @@ class HianModel(nn.Module):
             group_tensor = group_tensor/mask_sum
             group_tensor_list.append(group_tensor)
 
-            # Mask generate
-            group_mask = torch.any((lda_groups.squeeze(dim=-1))==group ,dim=1)
-            aspect_att_mask[:,group] = group_mask
-
-        aspect_review_tensor = torch.stack(group_tensor_list).permute(1, 0, 2)  
-        aspect_att_mask = torch.where(aspect_att_mask==0, 1., 0.)  
+            # Get ignore value index (False index)
+            if group == 0:
+                k_aspect_att_mask[:,group] = False
+            else:
+                group_mask = torch.any((lda_groups.squeeze(dim=-1))==group ,dim=1)
+                k_aspect_att_mask[:,group] = group_mask
+        # Mask generate
+        k_aspect_att_mask = ~k_aspect_att_mask
+        aspect_att_mask = torch.logical_or(k_aspect_att_mask.unsqueeze(dim=-1), k_aspect_att_mask.unsqueeze(dim=1))
+        aspect_review_tensor = torch.stack(group_tensor_list, dim=1)
+        
+        # print("lda_groups: ",lda_groups.squeeze(dim=-1)[0])
+        # print("k_aspect_att_mask: ", k_aspect_att_mask.shape)
+        # print("aspect_review_tensor: ",aspect_review_tensor[0])
+        # print("aspect_att_mask: ", aspect_att_mask.size())
 
         return aspect_review_tensor, aspect_att_mask
+
+    def review_level_network(self, x, review_attetion, *, batch_size):
+        attn_output = review_attetion(x, x, x, need_weights=False)
+        x = x * attn_output[0]
+        x = x.reshape(batch_size, -1, x.size(1))
+        return x 
     
 
     def forward(self, x, lda_groups):

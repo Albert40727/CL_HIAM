@@ -13,6 +13,9 @@ class FcLayer(nn.Module):
         self.fc2 = nn.Linear(512, 1)
         self.dropout_2 = nn.Dropout(0.2)
 
+        # self.fc1 = nn.Linear(1280, 1)
+        # self.dropout = nn.Dropout(0.4)
+
     def forward(self, x):
         x = self.fc1(x)
         x = self.dropout(x)
@@ -21,4 +24,9 @@ class FcLayer(nn.Module):
         x = self.fc2(x)
         x = self.dropout_2(x)
         output = torch.sigmoid(x)
+
+        # x = self.fc1(x)
+        # x = self.dropout(x)
+        # output = torch.sigmoid(x)
+
         return output
