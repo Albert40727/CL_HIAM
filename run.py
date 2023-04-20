@@ -35,7 +35,7 @@ def main(**args):
         fc_layer = FcLayer().to(device)
 
         # Loss criteria
-        criterion = nn.MSELoss()
+        criterion = nn.BCELoss()
         params = list(user_network_model.parameters()) + list(item_network_model.parameters()) + list(co_attention.parameters()) + list(fc_layer.parameters())
         optimizer = torch.optim.Adam(params, lr=1e-3, weight_decay=1e-4)
 
@@ -87,9 +87,9 @@ def main(**args):
         bp_gate = BackPropagationGate()
 
         # Loss criteria
-        user_criterion_stage1 = nn.CrossEntropyLoss()
-        item_criterion_stage1 = nn.CrossEntropyLoss()
-        criterion_stage2 = nn.CrossEntropyLoss()
+        user_criterion_stage1 = nn.BCELoss()
+        item_criterion_stage1 = nn.BCELoss()
+        criterion_stage2 = nn.BCELoss()
 
         # Parameters
         user_params_stage1 = (list(user_network_stage1.parameters()) + 
@@ -262,7 +262,7 @@ if __name__ == "__main__":
         "sentence_cnn_ksize" : 3,   # odd number 
         "epoch" : 40,
         "batch_size": 32,
-        "collab_learning": True,
+        "collab_learning": False,
         "epoch_stage1" : 10,
         "epoch_stage2" : 10,
         "trade_off_stage1": 0.3, 

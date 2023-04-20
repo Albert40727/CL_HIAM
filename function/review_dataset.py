@@ -29,6 +29,8 @@ class ReviewDataset(Dataset):
         item_review_emb = torch.from_numpy(np.array(item_review_data["SplitReview_emb"].tolist()))
         pad_user_emb = torch.zeros(self.args["max_review_user"], user_review_emb.size(1), user_review_emb.size(2))
         pad_item_emb = torch.zeros(self.args["max_review_item"], item_review_emb.size(1), item_review_emb.size(2))
+        k_user_review_mask = torch.zeros(self.args["max_review_user"], dtype=torch.bool)
+        k_item_review_mask = torch.zeros(self.args["max_review_item"], dtype=torch.bool)
 
         user_lda_groups = torch.from_numpy(np.array(user_review_data["LDA_group"].tolist()))
         item_lda_groups = torch.from_numpy(np.array(item_review_data["LDA_group"].tolist()))
@@ -40,11 +42,13 @@ class ReviewDataset(Dataset):
             pad_user_emb = user_review_emb[:self.args["max_review_user"], :, :]
         else:
             pad_user_emb[:user_review_emb.size(0), :, :] = user_review_emb
+            k_user_review_mask[user_review_emb.size(0):] = True
 
         if item_review_emb.size(0) > self.args["max_review_item"]:
             pad_item_emb = item_review_emb[:self.args["max_review_item"], :, :]
         else:
             pad_item_emb[:item_review_emb.size(0), :, :] = item_review_emb
+            k_item_review_mask[item_review_emb.size(0):] = True
 
         if user_lda_groups.size(0) > self.args["max_review_user"]:
             pad_user_lda = user_lda_groups[:self.args["max_review_user"], :]
@@ -59,7 +63,10 @@ class ReviewDataset(Dataset):
         user_mf_emb =  torch.from_numpy(self.user_mf_df[self.user_mf_df["UserID"]==userId]["MF_emb"].values[0])
         item_mf_emb =  torch.from_numpy(self.item_mf_df[self.item_mf_df["AppID"]==itemId]["MF_emb"].values[0])
 
-        return pad_user_emb, pad_item_emb, pad_user_lda, pad_item_lda, user_mf_emb, item_mf_emb ,y
+        user_review_mask = torch.logical_or(k_user_review_mask.unsqueeze(dim=-1), k_user_review_mask.unsqueeze(dim=0))
+        item_review_mask = torch.logical_or(k_item_review_mask.unsqueeze(dim=-1), k_item_review_mask.unsqueeze(dim=0))
+
+        return pad_user_emb, pad_item_emb, user_review_mask, item_review_mask, pad_user_lda, pad_item_lda, user_mf_emb, item_mf_emb , y
 
     def __len__(self):
         return len(self.review_df)
@@ -124,7 +131,6 @@ class ReviewDataseStage1(ReviewDataset):
             pad_item_y = item_y[:self.args["max_review_item"]]
         else:
             pad_item_y[:item_y.size(0)] = item_y
-
 
         user_mf_emb = torch.from_numpy(self.user_mf_df[self.user_mf_df["UserID"]==userId]["MF_emb"].values[0])
         item_mf_emb = torch.from_numpy(self.item_mf_df[self.item_mf_df["AppID"]==itemId]["MF_emb"].values[0])

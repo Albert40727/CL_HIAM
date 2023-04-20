@@ -32,9 +32,9 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
         for batch in tqdm(train_loader):
 
             # Exacute models
-            user_review_emb, item_review_emb, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, labels = batch
-            user_logits = user_network(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
-            item_logits = item_network(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
+            user_review_emb, item_review_emb, user_review_mask, item_review_mask, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, labels = batch
+            user_logits = user_network(user_review_emb.to(args["device"]), user_review_mask.to(args["device"]), user_lda_groups.to(args["device"]))
+            item_logits = item_network(item_review_emb.to(args["device"]), item_review_mask.to(args["device"]), item_lda_groups.to(args["device"]))
             weighted_user_logits,  weighted_item_logits = co_attention(user_logits, item_logits)
             user_feature = torch.cat((weighted_user_logits, user_mf_emb.to(args["device"])), dim=1)
             item_feature = torch.cat((weighted_item_logits, item_mf_emb.to(args["device"])), dim=1)
@@ -105,9 +105,9 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
             with torch.no_grad():
 
                 # Exacute models 
-                user_review_emb, item_review_emb, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, labels = batch
-                user_logits = user_network(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
-                item_logits = item_network(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
+                user_review_emb, item_review_emb, user_review_mask, item_review_mask, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, labels = batch
+                user_logits = user_network(user_review_emb.to(args["device"]), user_review_mask.to(args["device"]), user_lda_groups.to(args["device"]))
+                item_logits = item_network(item_review_emb.to(args["device"]), item_review_mask.to(args["device"]),item_lda_groups.to(args["device"]))
                 weighted_user_logits,  weighted_item_logits = co_attention(user_logits, item_logits)
                 user_feature = torch.cat((weighted_user_logits, user_mf_emb.to(args["device"])), dim=1)
                 item_feature = torch.cat((weighted_item_logits, item_mf_emb.to(args["device"])), dim=1)

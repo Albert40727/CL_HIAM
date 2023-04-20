@@ -51,16 +51,13 @@ def train_stage2_model(args,
         for batch in tqdm(train_loader):
 
             # Exacute models
-            user_review_emb, item_review_emb, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, labels = batch
+            user_review_emb, item_review_emb, user_review_mask, item_review_mask, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, labels = batch
             u_batch_size, i_batch_size = len(user_review_emb), len(item_review_emb)
-            user_logits = user_network_stage1(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
-            item_logits = item_network_stage1(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
-            urf, urf_1 = user_review_network(user_logits, u_batch_size)
-            irf, irf_1 = item_review_network(item_logits, u_batch_size)
-            urf = bp_gate.apply(urf)
-            urf_1 = bp_gate.apply(urf_1)
-            irf = bp_gate.apply(irf)
-            irf_1 = bp_gate.apply(irf_1)
+            user_arv = user_network_stage1(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
+            item_arv = item_network_stage1(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
+            urf, urf_1 = user_review_network(user_arv, user_review_mask.to(args["device"]), u_batch_size)
+            irf, irf_1 = item_review_network(item_arv, item_review_mask.to(args["device"]), i_batch_size)
+            urf, urf_1, irf, irf_1 = bp_gate.apply(urf), bp_gate.apply(urf_1), bp_gate.apply(irf), bp_gate.apply(irf_1)
             w_urf, w_urf_1, w_urf_2, w_urf_3, w_irf, w_irf_1, w_irf_2, w_irf_3 = co_attentions(urf, irf, urf, urf_1, urf_1, irf, irf_1, irf_1)
             
             user_feature = torch.cat((w_urf, user_mf_emb.to(args["device"])), dim=1)
@@ -90,7 +87,7 @@ def train_stage2_model(args,
             loss.backward()
 
             # Clip the gradient norms for stable training.
-            grad_norm = nn.utils.clip_grad_norm_(models_param, max_norm=10)
+            grad_norm = nn.utils.clip_grad_norm_(models_param, max_norm=1)
 
             # Update the parameters with computed gradients.
             optimizer.step()
@@ -150,10 +147,10 @@ def train_stage2_model(args,
                 # Exacute models       
                 user_review_emb, item_review_emb, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, labels = batch
                 u_batch_size, i_batch_size = len(user_review_emb), len(item_review_emb)
-                user_logits = user_network_stage1(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
-                item_logits = item_network_stage1(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
-                urf = user_review_network(user_logits, u_batch_size)
-                irf = item_review_network(item_logits, i_batch_size)
+                user_arv = user_network_stage1(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
+                item_arv = item_network_stage1(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
+                urf = user_review_network(user_arv, u_batch_size)
+                irf = item_review_network(item_arv, i_batch_size)
                 w_urf, w_irf = co_attentions(urf, irf)
                 user_feature = torch.cat((w_urf, user_mf_emb.to(args["device"])), dim=1)
                 item_feature = torch.cat((w_irf, item_mf_emb.to(args["device"])), dim=1)
