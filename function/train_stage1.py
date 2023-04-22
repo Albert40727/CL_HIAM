@@ -205,11 +205,6 @@ def batch_train_stage1(args, review_emb, lda_groups, labels, *,
              + args["trade_off_stage1"]*(criterion(logits, soft_label_1) + 
                                          criterion(logits, soft_label_2) + 
                                          criterion(logits, soft_label_3)))
-    
-    print("logits: ", torch.isnan(logits).any())
-    print("soft_label_1: ", torch.isnan(soft_label_1).any())
-    print("soft_label_2: ", torch.isnan(soft_label_2).any())
-    print("soft_label_3: ", torch.isnan(soft_label_3).any())
             
     # Gradients stored in the parameters in the previous step should be cleared out first.
     optimizers.zero_grad()

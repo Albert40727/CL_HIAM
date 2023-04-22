@@ -8,7 +8,7 @@ class FcLayer(nn.Module):
 
         self.fc1 = nn.Linear(1280, 512)
         self.dropout = nn.Dropout(0.4)
-        self.l_relu = nn.LeakyReLU()
+        self.l_relu = nn.Tanh()
 
         self.fc2 = nn.Linear(512, 1)
         self.dropout_2 = nn.Dropout(0.2)

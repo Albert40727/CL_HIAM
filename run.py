@@ -241,7 +241,7 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     args = {
         "device" : device,
-        "train": False, # Turn off to test only 
+        "train": True, # Turn off to test only 
         "test": True, # Turn off to train only 
         "train_data_dir" : r'../data/train_df.pkl',
         "val_data_dir" : r'../data/val_df.pkl',
@@ -263,12 +263,12 @@ if __name__ == "__main__":
         "word_cnn_ksize" : 5,   # odd number 
         "sentence_cnn_ksize" : 3,   # odd number 
         "batch_size": 32,
-        "collab_learning": False,
-        "epoch" : 50, # Use when "collab_learning" is False
-        "epoch_stage1" : 10, # Use when "collab_learning" is True
-        "epoch_stage2" : 10, # Use when "collab_learning" is True
-        "trade_off_stage1": 0.3, 
-        "trade_off_stage2": 0.3,
+        "collab_learning": True,
+        "epoch" : 50, # when "collab_learning" is False
+        "epoch_stage1" : 25, # when "collab_learning" is True
+        "epoch_stage2" : 25, # when "collab_learning" is True
+        "trade_off_stage1": 0.3, # when "collab_learning" is True
+        "trade_off_stage2": 0.3, # when "collab_learning" is True
         # "class_weight" : [1.25, 5]  weights for classes when computing loss 
     }
 
