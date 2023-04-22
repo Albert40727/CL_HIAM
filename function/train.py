@@ -41,7 +41,7 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
             fc_input = torch.cat((user_feature, item_feature), dim=1)
             output_logits = fc_layer(fc_input)
 
-            loss = criterion(torch.squeeze(output_logits, dim=1), labels.to(args["device"]).float())
+            loss = criterion(output_logits, torch.unsqueeze(labels.to(args["device"]).float(), dim=-1))
 
             # Gradients stored in the parameters in the previous step should be cleared out first.
             optimizer.zero_grad()

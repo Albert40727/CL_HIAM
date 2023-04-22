@@ -35,9 +35,11 @@ def main(**args):
         fc_layer = FcLayer().to(device)
 
         # Loss criteria
+        # class_weight = torch.tensor(args["class_weight"]).to(args["device"])
+        # criterion = nn.CrossEntropyLoss(weight=class_weight)
         criterion = nn.BCELoss()
         params = list(user_network_model.parameters()) + list(item_network_model.parameters()) + list(co_attention.parameters()) + list(fc_layer.parameters())
-        optimizer = torch.optim.Adam(params, lr=1e-3, weight_decay=1e-4)
+        optimizer = torch.optim.Adam(params, lr=1e-4, weight_decay=1e-5)
 
         # Training 
         train_loss, train_acc, val_loss, val_acc, save_param = \
@@ -105,7 +107,7 @@ def main(**args):
         
         user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=1e-4, weight_decay=1e-5)
         item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-4, weight_decay=1e-5)
-        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-3, weight_decay=1e-4)
+        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-4, weight_decay=1e-5)
 
         # Training 
         # Stage1 
@@ -166,7 +168,7 @@ def main(**args):
         if args["train"]:
             checkpoint = torch.load(BASE_PATH)
         else:
-            SPEC_PATH = args["model_save_path_base"] + "model_base_0417104349.pt" # Specify .pt you want to load
+            SPEC_PATH = args["model_save_path_base"] + "model_base_0422060354.pt" # Specify .pt you want to load
             checkpoint = torch.load(SPEC_PATH)
 
         # Init dataset and loader    
@@ -175,12 +177,12 @@ def main(**args):
 
         # Init model
         user_network_model = HianModel(args).to(device)
-        user_network_model.load_state_dict(checkpoint["user_review_network"])
         item_network_model = HianModel(args).to(device)
-        item_network_model.load_state_dict(checkpoint["item_review_network"])
         co_attention = CoattentionNet(args, args["co_attention_emb_dim"]).to(device)
-        co_attention.load_state_dict(checkpoint["co_attention"])
         fc_layer = FcLayer().to(device)
+        user_network_model.load_state_dict(checkpoint["user_review_network"])
+        item_network_model.load_state_dict(checkpoint["item_review_network"])
+        co_attention.load_state_dict(checkpoint["co_attention"])
         fc_layer.load_state_dict(checkpoint["fc_layer"])
 
         # Exacute test
@@ -209,16 +211,16 @@ def main(**args):
 
         # Init model
         user_network_stage1 = HianCollabStage1(args).to(device)
-        user_network_stage1.load_state_dict(checkpoint_stage1["user_network_stage1"])
         item_network_stage1 = HianCollabStage1(args).to(device)
-        item_network_stage1.load_state_dict(checkpoint_stage1["item_network_stage1"])
         user_review_network = ReviewNetworkStage2(args).to(device)
-        user_review_network.load_state_dict(checkpoint_stage2["user_review_network"])
         item_review_network = ReviewNetworkStage2(args).to(device)
-        item_review_network.load_state_dict(checkpoint_stage2["item_review_network"])
         co_attentions = CoattentionNetStage2(args, args["co_attention_emb_dim"]).to(device)
-        co_attentions.load_state_dict(checkpoint_stage2["co_attention_stage2"])
         fc_layers_stage2 = FcLayerStage2().to(device)
+        user_network_stage1.load_state_dict(checkpoint_stage1["user_network_stage1"])
+        item_network_stage1.load_state_dict(checkpoint_stage1["item_network_stage1"])
+        user_review_network.load_state_dict(checkpoint_stage2["user_review_network"])
+        item_review_network.load_state_dict(checkpoint_stage2["item_review_network"])
+        co_attentions.load_state_dict(checkpoint_stage2["co_attention_stage2"])
         fc_layers_stage2.load_state_dict(checkpoint_stage2["fc_layer_stage2"])
 
         # Exacute test
@@ -239,7 +241,7 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     args = {
         "device" : device,
-        "train": True, # Turn off to test only 
+        "train": False, # Turn off to test only 
         "test": True, # Turn off to train only 
         "train_data_dir" : r'../data/train_df.pkl',
         "val_data_dir" : r'../data/val_df.pkl',
@@ -260,13 +262,14 @@ if __name__ == "__main__":
         "lda_group_num": 6, # Include default 0 group. 
         "word_cnn_ksize" : 5,   # odd number 
         "sentence_cnn_ksize" : 3,   # odd number 
-        "epoch" : 40,
         "batch_size": 32,
         "collab_learning": False,
-        "epoch_stage1" : 10,
-        "epoch_stage2" : 10,
+        "epoch" : 50, # Use when "collab_learning" is False
+        "epoch_stage1" : 10, # Use when "collab_learning" is True
+        "epoch_stage2" : 10, # Use when "collab_learning" is True
         "trade_off_stage1": 0.3, 
         "trade_off_stage2": 0.3,
+        # "class_weight" : [1.25, 5]  weights for classes when computing loss 
     }
 
     print("Device: ", device)
@@ -278,4 +281,3 @@ if __name__ == "__main__":
         print("Epoch: ", args["epoch"])
 
     main(**args)
-
