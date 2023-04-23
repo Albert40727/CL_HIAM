@@ -145,7 +145,7 @@ def train_stage2_model(args,
             with torch.no_grad():
 
                 # Exacute models       
-                user_review_emb, item_review_emb, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, labels = batch
+                user_review_emb, item_review_emb, user_review_mask, item_review_mask, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, labels = batch
                 u_batch_size, i_batch_size = len(user_review_emb), len(item_review_emb)
                 user_arv = user_network_stage1(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
                 item_arv = item_network_stage1(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
