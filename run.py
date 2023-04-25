@@ -107,28 +107,33 @@ def main(**args):
         
         user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=1e-4, weight_decay=1e-5)
         item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-4, weight_decay=1e-5)
-        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-4, weight_decay=1e-5)
+        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-3, weight_decay=1e-4)
 
         # Training 
         # Stage1 
-        (t_user_loss_stage1, t_user_acc_stage1, t_item_loss_stage1, t_item_acc_stage1,
-          v_user_loss_stage1, v_user_acc_stage1, v_item_loss_stage1, v_item_acc_stage1, save_param_stage1) = \
-        train_stage1_model(
-            args,                                                           
-            train_loader_stage1,
-            val_loader_stage1,
-            user_network_stage1,
-            item_network_stage1, 
-            user_fc_layer_stage1,
-            item_fc_layer_stage1,
-            criterions = [user_criterion_stage1, item_criterion_stage1], 
-            models_params = [user_params_stage1, item_params_stage1], 
-            optimizers = [user_optimizer_stage1, item_optimizer_stage1])
+        # (t_user_loss_stage1, t_user_acc_stage1, t_item_loss_stage1, t_item_acc_stage1,
+        #   v_user_loss_stage1, v_user_acc_stage1, v_item_loss_stage1, v_item_acc_stage1, save_param_stage1) = \
+        # train_stage1_model(
+        #     args,                                                           
+        #     train_loader_stage1,
+        #     val_loader_stage1,
+        #     user_network_stage1,
+        #     item_network_stage1, 
+        #     user_fc_layer_stage1,
+        #     item_fc_layer_stage1,
+        #     criterions = [user_criterion_stage1, item_criterion_stage1], 
+        #     models_params = [user_params_stage1, item_params_stage1], 
+        #     optimizers = [user_optimizer_stage1, item_optimizer_stage1])
         
-        # Save stage1 model
-        # Make sure you've change the STAGE1_PATH if you only want to train stage2
-        STAGE1_PATH = args["model_save_path_cl"] + "model_cl_stage1_{}.pt".format(time.strftime("%m%d%H%M%S"))
-        torch.save(save_param_stage1, STAGE1_PATH)
+        # # Save stage1 model
+        # # Make sure you've change the STAGE1_PATH if you only want to train stage2
+        # STAGE1_PATH = args["model_save_path_cl"] + "model_cl_stage1_{}.pt".format(time.strftime("%m%d%H%M%S"))
+        # torch.save(save_param_stage1, STAGE1_PATH)
+
+        # //////////////////////add//////////////////////////////
+        STAGE1_PATH = args["model_save_path_cl"] + "model_cl_stage1_0423044524.pt"
+        save_param_stage1 = torch.load(args["model_save_path_cl"] + "model_cl_stage1_0423044524.pt")
+        # //////////////////////add//////////////////////////////
 
         # Load stage1 model before training stage2
         user_network_stage1.load_state_dict(save_param_stage1["user_network_stage1"])
@@ -156,8 +161,8 @@ def main(**args):
         torch.save(save_param_stage2, STAGE2_PATH)
         
         # Plot stage1 loss & acc
-        draw_loss_curve_stage1(t_user_loss_stage1, v_user_loss_stage1, t_item_loss_stage1, v_item_loss_stage1)
-        draw_acc_curve_stage1(t_user_acc_stage1, v_user_acc_stage1, t_item_acc_stage1, v_item_acc_stage1)
+        # draw_loss_curve_stage1(t_user_loss_stage1, v_user_loss_stage1, t_item_loss_stage1, v_item_loss_stage1)
+        # draw_acc_curve_stage1(t_user_acc_stage1, v_user_acc_stage1, t_item_acc_stage1, v_item_acc_stage1)
         
         # Plot stage2 loss & acc
         draw_loss_curve_stage2(t_loss_stage2, v_loss_stage2)
@@ -200,8 +205,8 @@ def main(**args):
             checkpoint_stage1 = torch.load(STAGE1_PATH)
             checkpoint_stage2 = torch.load(STAGE2_PATH)
         else:
-            SPEC_PATH_STAGE1 = args["model_save_path_cl"] + "model_cl_stage1_0412061332.pt" # Specify .pt you want to load
-            SPEC_PATH_STAGE2 = args["model_save_path_cl"] + "model_cl_stage2_0412121305.pt" # Specify .pt you want to load
+            SPEC_PATH_STAGE1 = args["model_save_path_cl"] + "model_cl_stage1_0423044524.pt" # Specify .pt you want to load
+            SPEC_PATH_STAGE2 = args["model_save_path_cl"] + "model_cl_stage2_0425041145.pt" # Specify .pt you want to load
             checkpoint_stage1 = torch.load(SPEC_PATH_STAGE1)
             checkpoint_stage2 = torch.load(SPEC_PATH_STAGE2)
 
@@ -241,7 +246,7 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     args = {
         "device" : device,
-        "train": True, # Turn off to test only 
+        "train": False, # Turn off to test only 
         "test": True, # Turn off to train only 
         "train_data_dir" : r'../data/train_df.pkl',
         "val_data_dir" : r'../data/val_df.pkl',

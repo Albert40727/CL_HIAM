@@ -119,9 +119,9 @@ def train_stage2_model(args,
         train_recall = sum(train_recalls) / len(train_recalls)
         train_f1 = sum(train_f1s) / len(train_f1s)
 
-        print(f"[ Train stage2 | {epoch + 1:03d}/{n_epochs:03d} ] loss = {train_loss:.5f}, acc = {train_acc:.4f}, precision = {train_precision:.4f}, recall = {train_recall:.4f}, f1 = {train_f1}")
+        print(f"[ Train stage2 | {epoch + 1:03d}/{n_epochs:03d} ] loss = {train_loss:.5f}, acc = {train_acc:.4f}, precision = {train_precision:.4f}, recall = {train_recall:.4f}, f1 = {train_f1:.4f}")
         with open('output/history/stage2.csv','a') as file:
-            file.write(time.strftime("%m-%d %H:%M")+","+f"train,stage2,{epoch + 1:03d}/{n_epochs:03d},{train_loss:.5f},{train_acc:.4f},{train_precision:.4f},{train_recall:.4f},{train_f1}" + "\n")
+            file.write(time.strftime("%m-%d %H:%M")+","+f"train,stage2,{epoch + 1:03d}/{n_epochs:03d},{train_loss:.5f},{train_acc:.4f},{train_precision:.4f},{train_recall:.4f},{train_f1:.4f}" + "\n")
 
         # ---------- Validation ----------
         # Make sure the model is in eval mode so that some modules like dropout are disabled and work normally.
@@ -149,8 +149,8 @@ def train_stage2_model(args,
                 u_batch_size, i_batch_size = len(user_review_emb), len(item_review_emb)
                 user_arv = user_network_stage1(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
                 item_arv = item_network_stage1(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
-                urf = user_review_network(user_arv, u_batch_size)
-                irf = item_review_network(item_arv, i_batch_size)
+                urf = user_review_network(user_arv, user_review_mask.to(args["device"]), u_batch_size)
+                irf = item_review_network(item_arv, item_review_mask.to(args["device"]), i_batch_size)
                 w_urf, w_irf = co_attentions(urf, irf)
                 user_feature = torch.cat((w_urf, user_mf_emb.to(args["device"])), dim=1)
                 item_feature = torch.cat((w_irf, item_mf_emb.to(args["device"])), dim=1)

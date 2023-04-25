@@ -101,10 +101,10 @@ def test_collab_model(
             # Exacute models       
             user_review_emb, item_review_emb, user_review_mask, item_review_mask, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, labels = batch
             u_batch_size, i_batch_size = len(user_review_emb), len(item_review_emb)
-            user_logits = user_network_stage1(user_review_emb.to(args["device"]), user_review_mask.to(args["device"]), user_lda_groups.to(args["device"]))
-            item_logits = item_network_stage1(item_review_emb.to(args["device"]), item_review_mask.to(args["device"]), item_lda_groups.to(args["device"]))
-            urf = user_review_network(user_logits, u_batch_size)
-            irf = item_review_network(item_logits, i_batch_size)
+            user_logits = user_network_stage1(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
+            item_logits = item_network_stage1(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
+            urf = user_review_network(user_logits, user_review_mask.to(args["device"]),  u_batch_size)
+            irf = item_review_network(item_logits, item_review_mask.to(args["device"]), i_batch_size)
             w_urf, w_irf = co_attentions(urf, irf)
             user_feature = torch.cat((w_urf, user_mf_emb.to(args["device"])), dim=1)
             item_feature = torch.cat((w_irf, item_mf_emb.to(args["device"])), dim=1)
