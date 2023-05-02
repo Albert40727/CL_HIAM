@@ -7,6 +7,7 @@ from torch.utils.data import Dataset
 class ReviewDataset(Dataset):
     def __init__(self, args, *, mode):
         self.args = args
+        self.mode = mode
         if mode == "train":
             self.review_df = pd.read_pickle(args["train_data_dir"])
         elif mode == "val":
@@ -15,6 +16,25 @@ class ReviewDataset(Dataset):
             self.review_df = pd.read_pickle(args["test_data_dir"])
         self.user_mf_df = pd.read_pickle(args["user_mf_data_dir"])
         self.item_mf_df = pd.read_pickle(args["item_mf_data_dir"])
+    
+    def get_empty_incidence_df(self):
+        user_index = set(self.review_df["UserID"])
+        app_index = set(self.review_df["AppID"])
+        incidence_df = pd.DataFrame(index=set(user_index), columns=set(app_index), dtype=np.float32)
+        incidence_df.fillna(0, inplace=True)
+        incidence_df.sort_index(inplace=True)
+        incidence_df = incidence_df.reindex(sorted(incidence_df.columns), axis=1)
+        return incidence_df
+    
+    def get_true_incidence_df(self):
+        user_index = set(self.review_df["UserID"])
+        incidence_df = self.get_empty_incidence_df()
+        for user in user_index:
+            user_df = self.review_df[self.review_df["UserID"]==user]
+            user_like_app_list = list(user_df[user_df["Like"]==1]["AppID"])
+            incidence_df.at[user, user_like_app_list] = 1
+        return incidence_df
+
       
     def __getitem__(self, idx):
 
@@ -66,6 +86,8 @@ class ReviewDataset(Dataset):
         user_review_mask = torch.logical_or(k_user_review_mask.unsqueeze(dim=-1), k_user_review_mask.unsqueeze(dim=0))
         item_review_mask = torch.logical_or(k_item_review_mask.unsqueeze(dim=-1), k_item_review_mask.unsqueeze(dim=0))
 
+        if self.mode == "test":
+            return userId, itemId, pad_user_emb, pad_item_emb, user_review_mask, item_review_mask, pad_user_lda, pad_item_lda, user_mf_emb, item_mf_emb , y
         return pad_user_emb, pad_item_emb, user_review_mask, item_review_mask, pad_user_lda, pad_item_lda, user_mf_emb, item_mf_emb , y
 
     def __len__(self):

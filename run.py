@@ -15,7 +15,7 @@ from function.review_dataset import ReviewDataset, ReviewDataseStage1
 from function.train import train_model, draw_acc_curve, draw_loss_curve
 from function.train_stage1 import train_stage1_model, draw_acc_curve_stage1, draw_loss_curve_stage1
 from function.train_stage2 import train_stage2_model, draw_acc_curve_stage2, draw_loss_curve_stage2
-from function.test import test_model, test_collab_model
+from function.test import test_model, test_model_topk, test_collab_model
 
                                                                    
 def main(**args):
@@ -35,11 +35,9 @@ def main(**args):
         fc_layer = FcLayer().to(device)
 
         # Loss criteria
-        # class_weight = torch.tensor(args["class_weight"]).to(args["device"])
-        # criterion = nn.CrossEntropyLoss(weight=class_weight)
         criterion = nn.BCELoss()
         params = list(user_network_model.parameters()) + list(item_network_model.parameters()) + list(co_attention.parameters()) + list(fc_layer.parameters())
-        optimizer = torch.optim.Adam(params, lr=1e-4, weight_decay=1e-5)
+        optimizer = torch.optim.Adam(params, lr=1e-4)
 
         # Training 
         train_loss, train_acc, val_loss, val_acc, save_param = \
@@ -173,7 +171,7 @@ def main(**args):
         if args["train"]:
             checkpoint = torch.load(BASE_PATH)
         else:
-            SPEC_PATH = args["model_save_path_base"] + "model_base_0422060354.pt" # Specify .pt you want to load
+            SPEC_PATH = args["model_save_path_base"] + "model_base_0501093259.pt" # Specify .pt you want to load
             checkpoint = torch.load(SPEC_PATH)
 
         # Init dataset and loader    
@@ -191,7 +189,7 @@ def main(**args):
         fc_layer.load_state_dict(checkpoint["fc_layer"])
 
         # Exacute test
-        test_model(
+        test_model_topk(
             args,
             test_loader,
             user_network_model,
@@ -206,7 +204,7 @@ def main(**args):
             checkpoint_stage2 = torch.load(STAGE2_PATH)
         else:
             SPEC_PATH_STAGE1 = args["model_save_path_cl"] + "model_cl_stage1_0423044524.pt" # Specify .pt you want to load
-            SPEC_PATH_STAGE2 = args["model_save_path_cl"] + "model_cl_stage2_0425041145.pt" # Specify .pt you want to load
+            SPEC_PATH_STAGE2 = args["model_save_path_cl"] + "model_cl_stage2_0426041747.pt" # Specify .pt you want to load
             checkpoint_stage1 = torch.load(SPEC_PATH_STAGE1)
             checkpoint_stage2 = torch.load(SPEC_PATH_STAGE2)
 
@@ -246,8 +244,8 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     args = {
         "device" : device,
-        "train": False, # Turn off to test only 
-        "test": True, # Turn off to train only 
+        "train": True, # Turn off to test only 
+        "test": False, # Turn off to train only 
         "train_data_dir" : r'../data/train_df.pkl',
         "val_data_dir" : r'../data/val_df.pkl',
         "test_data_dir" : r'../data/test_df.pkl',
@@ -259,7 +257,7 @@ if __name__ == "__main__":
         "model_save_path_cl" : r"output/model/collab/",
         "max_word" : 25,
         "max_sentence" : 10,
-        "max_review_user" : 10,
+        "max_review_user" : 20,
         "max_review_item" : 50,
         "emb_dim" : 768,
         "co_attention_emb_dim" : 512,
@@ -268,13 +266,12 @@ if __name__ == "__main__":
         "word_cnn_ksize" : 5,   # odd number 
         "sentence_cnn_ksize" : 3,   # odd number 
         "batch_size": 32,
-        "collab_learning": True,
-        "epoch" : 50, # when "collab_learning" is False
-        "epoch_stage1" : 25, # when "collab_learning" is True
-        "epoch_stage2" : 25, # when "collab_learning" is True
+        "collab_learning": False,
+        "epoch" : 15, # when "collab_learning" is False
+        "epoch_stage1" : 10, # when "collab_learning" is True
+        "epoch_stage2" : 10, # when "collab_learning" is True
         "trade_off_stage1": 0.3, # when "collab_learning" is True
         "trade_off_stage2": 0.3, # when "collab_learning" is True
-        # "class_weight" : [1.25, 5]  weights for classes when computing loss 
     }
 
     print("Device: ", device)

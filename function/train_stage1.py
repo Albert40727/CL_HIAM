@@ -1,8 +1,8 @@
 import torch
 import time
+from tqdm import tqdm
 import torch.nn as nn
 import matplotlib.pyplot as plt
-from tqdm import tqdm
 from sklearn.metrics import precision_score, recall_score, f1_score
 
 def train_stage1_model(args, 
@@ -91,7 +91,7 @@ def train_stage1_model(args,
                    item_train_recalls_stage1,
                    item_train_f1s_stage1,
                    mode = "Train",
-                   target="item",
+                   target = "item",
                    epoch = epoch,
                    n_epochs = n_epochs)
 
@@ -160,7 +160,7 @@ def train_stage1_model(args,
                    item_val_recalls_stage1,
                    item_val_f1s_stage1,
                    mode = "Valid",
-                   target="item",
+                   target = "item",
                    epoch = epoch,
                    n_epochs = n_epochs)
 
@@ -224,9 +224,9 @@ def batch_train_stage1(args, review_emb, lda_groups, labels, *,
 
     # Compute the informations for current batch.
     acc = (result_logits == labels).float().mean()
-    precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
-    recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0)
-    f1 = f1_score(labels.cpu(), result_logits.cpu())
+    precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="weighted")
+    recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="weighted")
+    f1 = f1_score(labels.cpu(), result_logits.cpu(), average="weighted")
 
     # rate = sum(result_logits==labels)/sum(labels)
     # print(f"loss:{loss:.4f}", f"result logit: {sum(result_logits)}", f"labels: {sum(labels)}", f"acc: {rate:.3f}", f"precision: {precision:.3f}", f"recall: {recall:.3f}")
@@ -248,9 +248,9 @@ def batch_val_stage1(args, review_emb, lda_groups, labels,
 
     # Compute the information for current batch.
     acc = (result_logits == labels).float().mean()
-    precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
-    recall = recall_score(labels.cpu(), result_logits.cpu())
-    f1 = f1_score(labels.cpu(), result_logits.cpu())
+    precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="weighted")
+    recall = recall_score(labels.cpu(), result_logits.cpu(), average="weighted")
+    f1 = f1_score(labels.cpu(), result_logits.cpu(), average="weighted")
     # ndcg = ndcg_score(labels.unsqueeze(dim=-1).cpu(), result_logits.unsqueeze(dim=-1).cpu())
 
     return loss.item(), acc, precision, recall, f1

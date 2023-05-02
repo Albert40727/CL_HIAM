@@ -98,9 +98,9 @@ def train_stage2_model(args,
 
             # Compute the informations for current batch.
             acc = (result_logits == labels).float().mean()
-            precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
-            recall = recall_score(labels.cpu(), result_logits.cpu())
-            f1 = f1_score(labels.cpu(), result_logits.cpu())
+            precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="weighted")
+            recall = recall_score(labels.cpu(), result_logits.cpu(), average="weighted")
+            f1 = f1_score(labels.cpu(), result_logits.cpu(), average="weighted")
             
             # print(logits.squeeze(dim=-1))
             # print(f"loss = {loss:.5f}, acc = {acc:.4f}, precision = {precision:.4f}, recall = {recall:.4f}, f1 = {f1}")
@@ -166,9 +166,9 @@ def train_stage2_model(args,
 
                 # Compute the information for current batch.
                 acc = (result_logits == labels.to(args["device"])).float().mean()
-                precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
-                recall = recall_score(labels.cpu(), result_logits.cpu())
-                f1 = f1_score(labels.cpu(), result_logits.cpu())
+                precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="weighted")
+                recall = recall_score(labels.cpu(), result_logits.cpu(), average="weighted")
+                f1 = f1_score(labels.cpu(), result_logits.cpu(), average="weighted")
                 # ndcg = ndcg_score(labels.unsqueeze(dim=-1).cpu(), result_logits.unsqueeze(dim=-1).cpu())
 
                 # Record the information.
