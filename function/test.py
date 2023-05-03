@@ -112,8 +112,6 @@ def test_model_topk(args, test_loader, user_network, item_network, co_attention,
     # To store the prediction
     predict_incidence_df = test_loader.dataset.get_empty_incidence_df()
     label_incidence_df = test_loader.dataset.get_true_incidence_df()
-
-    flag = 0
     
     # Iterate the test set by batches.
     print("-------------------------- TEST --------------------------")
@@ -134,10 +132,7 @@ def test_model_topk(args, test_loader, user_network, item_network, co_attention,
 
             for user, item, logit in zip(userId.cpu(), itemId.cpu(), output_logits.squeeze(dim=-1).cpu()):
                 predict_incidence_df.at[int(user), int(item)] = float(logit)
-            
-            flag+=1
-            if flag == 5:
-                break
+
 
     TOP_N = 20
     top_k_df = predict_incidence_df.apply(lambda s, n: pd.Series(s.nlargest(n).index), axis=1, n=TOP_N)
