@@ -6,14 +6,14 @@ class FcLayer(nn.Module):
         super().__init__()
 
         self.fc1 = nn.Linear(1280, 640)
-        self.dropout_1 = nn.Dropout(0.1)
+        self.dropout_1 = nn.Dropout(0.3)
         self.tanh = nn.Tanh()
 
         self.fc2 = nn.Linear(640, 1)
-        self.dropout_2 = nn.Dropout(0.1)
+        self.dropout_2 = nn.Dropout(0.2)
 
         # self.fc1 = nn.Linear(1280, 1)
-        # self.dropout = nn.Dropout(0.1)
+        # self.dropout = nn.Dropout(0.2)
 
     def forward(self, x):
 

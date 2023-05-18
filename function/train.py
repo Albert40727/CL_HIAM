@@ -153,7 +153,8 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
         v_loss_list.append(valid_loss)
         v_acc_list.append(valid_acc.cpu())
 
-        if valid_loss == min(v_loss_list):
+        v_f1_list.append(valid_f1)
+        if valid_f1 == max(v_f1_list):
             save_param.update({
                 'user_review_network' : user_network.state_dict(),
                 'item_review_network' : item_network.state_dict(),
@@ -161,7 +162,6 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
                 'fc_layer' : fc_layer.state_dict(),
                 'optimizer': optimizer.state_dict(),
             })
-
 
     return t_loss_list, t_acc_list, v_loss_list, v_acc_list, save_param
 

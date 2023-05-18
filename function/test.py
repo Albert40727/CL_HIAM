@@ -1,39 +1,40 @@
 import torch
 import time
+import math
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from itertools import product
-from sklearn.metrics import precision_score, recall_score, f1_score, ndcg_score
+from sklearn.metrics import precision_score, recall_score, f1_score, ndcg_score, average_precision_score
 
 
 # def mapk(actuals, predicted, k=0):
 #   return np.mean([apk(a,p,k) for a,p in product([actuals], [predicted])])
 
-def apk(y_true, y_pred, k_max=0):
-    #  Source: https://towardsdatascience.com/mean-average-precision-at-k-map-k-clearly-explained-538d8e032d2
-    #  Check if all elements in lists are unique
-    if len(set(y_true)) != len(y_true):
-        raise ValueError("Values in y_true are not unique")
+def ndcg(y_true, y_pred, top_K=0):
+    # From 趙儀
+    ndcg_K = []
+    true_sum = 0
 
-    if len(set(y_pred)) != len(y_pred):
-        raise ValueError("Values in y_pred are not unique")
+    for i in range(y_pred.shape[0]):
+        top_indices = y_pred[i].argsort()[-top_K:][::-1] #每篇文章排名前Top K可能的tag index
+        true_num = np.sum(y_true[i, :])
+        true_sum += true_num
+        dcg = 0
+        idcg = 0
+        idcgCount = true_num
+        j = 0
+        for item in top_indices:
+            if y_true[i, item] == 1:
+                dcg += 1.0/math.log2(j + 2)
+            if idcgCount > 0:
+                idcg += 1.0/math.log2(j + 2)
+                idcgCount = idcgCount-1
+            j += 1
+        if(idcg != 0):
+            ndcg_K.append(dcg/idcg)
 
-    if k_max != 0:
-        y_pred = y_pred[:k_max]
-
-    correct_predictions = 0
-    running_sum = 0
-
-    for i, yp_item in enumerate(y_pred):
-        
-        k = i+1 # our rank starts at 1
-        
-        if yp_item in y_true:
-            correct_predictions += 1
-            running_sum += correct_predictions/k
-
-    return running_sum/len(y_true)
+    return  np.mean(np.array(ndcg_K))
 
 def test_model(args, test_loader, user_network, item_network, co_attention, fc_layer):
     # ---------- Test ----------
@@ -103,12 +104,6 @@ def test_model_topk(args, test_loader, user_network, item_network, co_attention,
     co_attention.eval()
     fc_layer.eval()
 
-    # These are used to record information in test.
-    test_maps = []
-    test_top_20_hrs = []
-    test_top_10_hrs = []
-    test_top_5_hrs = []
-
     # To store the prediction
     predict_incidence_df = test_loader.dataset.get_empty_incidence_df()
     label_incidence_df = test_loader.dataset.get_true_incidence_df()
@@ -133,53 +128,72 @@ def test_model_topk(args, test_loader, user_network, item_network, co_attention,
             for user, item, logit in zip(userId.cpu(), itemId.cpu(), output_logits.squeeze(dim=-1).cpu()):
                 predict_incidence_df.at[int(user), int(item)] = float(logit)
 
+            # Output after sigmoid is greater than "Q" will be considered as 1, else 0.
+            result_logits = torch.where(output_logits > 0.5, 1, 0).squeeze(dim=-1)
+            labels = labels.to(args["device"])
 
-    TOP_N = 20
+    # For topk score calculation
+    TOP_N = 10
     top_k_df = predict_incidence_df.apply(lambda s, n: pd.Series(s.nlargest(n).index), axis=1, n=TOP_N)
 
     # Save result
     predict_incidence_df.to_csv('output/history/probability_df.csv')
+    predict_incidence_df.to_pickle('output/history/probability_df.pkl')
     top_k_df.to_csv('output/history/topk_prediction_df.csv')
+    top_k_df.to_pickle('output/history/topk_prediction_df.pkl')
     print(predict_incidence_df)
     print(top_k_df)
 
+    global_hit_10 = 0
+    global_hit_5 = 0
+    global_like = 0
+
+    global_labels = []
+    global_prediction = []
+    
     # Calculate each score
     for user in predict_incidence_df.index:
         
         # Data for scoring
         user_topk_prediction = top_k_df.loc[user]
+        user_pred_prob = predict_incidence_df.loc[user]
+        
         user_label = label_incidence_df.loc[user]
         user_like = user_label[user_label==1].keys()
         user_topk_label = label_incidence_df.loc[user, user_topk_prediction]
 
-        # MAP
-        test_map = apk(list(user_like), list(top_k_df.loc[user]), k_max=TOP_N)
-        test_maps.append(test_map)
+        # get 01 prediction from probability
+        pred_tensor = torch.tensor(user_pred_prob.values)
+        value, idx = pred_tensor.topk(k=TOP_N)
+        user_pred_binary = torch.zeros(pred_tensor.size())
+        user_pred_binary[idx] = 1 
 
-        # Top-20 hit ratio
-        user_top_20_hr = len(user_topk_label[user_topk_label==1]) / len(user_like)
-        test_top_20_hrs.append(user_top_20_hr)
+        global_like += len(user_like)
+        global_labels.append(user_label.tolist())
+        global_prediction.append(user_pred_binary.tolist())
 
         # Top-10 hit ratio
         user_top_10_label = user_topk_label[:10]
-        user_top_10_hr = len(user_top_10_label[user_top_10_label==1]) / len(user_like)
-        test_top_10_hrs.append(user_top_10_hr)
+        global_hit_10 += len(user_top_10_label[user_top_10_label==1])
 
         # Top-5 hit ratio
         user_top_5_label = user_topk_label[:5]
-        user_top_5_hr = len(user_top_5_label[user_top_5_label==1]) / len(user_like)
-        test_top_5_hrs.append(user_top_5_hr)
+        global_hit_5 += len(user_top_5_label[user_top_5_label==1])
 
+    test_precision = precision_score(global_labels, global_prediction, zero_division=0, average="macro")
+    test_recall = recall_score(global_labels, global_prediction, zero_division=0, average="macro")
+    test_f1 = f1_score(global_labels, global_prediction, zero_division=0, average="macro")
 
-    # test_ndcg = sum(test_ndcgs) / len(test_ndcgs)
-    test_map = sum(test_maps) / len(test_maps)
-    test_top_20_hr = sum(test_top_20_hrs) / len(test_top_20_hrs)
-    test_top_10_hr = sum(test_top_10_hrs) / len(test_top_10_hrs)
-    test_top_5_hr = sum(test_top_5_hrs) / len(test_top_5_hrs)
+    test_top_10_hr = global_hit_10 / global_like
+    test_top_5_hr = global_hit_5 / global_like
 
-    print(f"[ Test base ] MAP@{TOP_N} = {test_map:.4f}, Top-20 = {test_top_20_hr:.4f}, Top-10 = {test_top_10_hr:.4f}, Top-5 = {test_top_5_hr:.4f}")
-    with open('output/history/test_base_map_topk.csv','a') as file:
-        file.write(time.strftime("%m-%d %H:%M")+","+f"test,{test_map:.4f},{test_top_20_hr:.4f},{test_top_10_hr:.4f},{test_top_5_hr:.4f}" + "\n")
+    test_map = average_precision_score(label_incidence_df.to_numpy(), predict_incidence_df.to_numpy())
+    test_ndcg = ndcg(label_incidence_df.to_numpy(), predict_incidence_df.to_numpy(), TOP_N)
+
+    print(f"[ Test base ] precision@{TOP_N} = {test_precision:.4f}, recall@{TOP_N} = {test_recall:.4f}, f1@{TOP_N} = {test_f1:.4f}")
+    print(f"[ Test base ] MAP@{TOP_N} = {test_map:.4f}, NDCG@{TOP_N} = {test_ndcg:.4f}, HR@10 = {test_top_10_hr:.4f}, HR@5 = {test_top_5_hr:.4f}")
+    with open('output/history/test_base_topk.csv','a') as file:
+        file.write(time.strftime("%m-%d %H:%M")+","+f"test,{test_precision:.4f},{test_recall:.4f},{test_f1:.4f},{test_map:.4f},{test_ndcg:.4f},{test_top_10_hr:.4f},{test_top_5_hr:.4f}" + "\n")
 
     
 def test_collab_model(

@@ -37,7 +37,7 @@ def main(**args):
         # Loss criteria
         criterion = nn.BCELoss()
         params = list(user_network_model.parameters()) + list(item_network_model.parameters()) + list(co_attention.parameters()) + list(fc_layer.parameters())
-        optimizer = torch.optim.Adam(params, lr=1e-3)
+        optimizer = torch.optim.Adam(params, lr=1e-3, weight_decay=1e-4)
 
         # Training 
         train_loss, train_acc, val_loss, val_acc, save_param = \
@@ -103,9 +103,9 @@ def main(**args):
                          list(co_attentions.parameters()) + 
                          list(fc_layers_stage2.parameters()))
         
-        user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=1e-3)
-        item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-3)
-        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-3)
+        user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=1e-3, weight_decay=1e-4)
+        item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-3, weight_decay=1e-4)
+        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-3, weight_decay=1e-4)
 
         # Training 
         # Stage1 
@@ -170,9 +170,11 @@ def main(**args):
     if not args["collab_learning"] and args["test"]:
         if args["train"]:
             checkpoint = torch.load(BASE_PATH)
+            print("Apply trained model param of min val loss.")
         else:
-            SPEC_PATH = args["model_save_path_base"] + "model_base_0503040604.pt" # Specify .pt you want to load
+            SPEC_PATH = args["model_save_path_base"] + "model_base_0509052647.pt" # Specify .pt you want to load
             checkpoint = torch.load(SPEC_PATH)
+            print(f"Apply specified model param.")
 
         # Init dataset and loader    
         test_dataset = ReviewDataset(args, mode="test")
@@ -203,11 +205,13 @@ def main(**args):
         if args["train"]:
             checkpoint_stage1 = torch.load(STAGE1_PATH)
             checkpoint_stage2 = torch.load(STAGE2_PATH)
+            print("Apply collab model param of min val loss.")
         else:
             SPEC_PATH_STAGE1 = args["model_save_path_cl"] + "model_cl_stage1_0423044524.pt" # Specify .pt you want to load
             SPEC_PATH_STAGE2 = args["model_save_path_cl"] + "model_cl_stage2_0426041747.pt" # Specify .pt you want to load
             checkpoint_stage1 = torch.load(SPEC_PATH_STAGE1)
             checkpoint_stage2 = torch.load(SPEC_PATH_STAGE2)
+            print(f"Apply specified collab model param.")
 
         # Init dataset and loader    
         test_dataset = ReviewDataset(args, mode="test")
@@ -245,7 +249,7 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     args = {
         "device" : device,
-        "train": False, # Turn off to test only 
+        "train": True, # Turn off to test only 
         "test": True, # Turn off to train only 
         "train_data_dir" : r'../data/train_df.pkl',
         "val_data_dir" : r'../data/val_df.pkl',
@@ -268,7 +272,7 @@ if __name__ == "__main__":
         "sentence_cnn_ksize" : 3,   # odd number 
         "batch_size": 32,
         "collab_learning": False,
-        "epoch" : 15, # when "collab_learning" is False
+        "epoch" : 25, # when "collab_learning" is False
         "epoch_stage1" : 10, # when "collab_learning" is True
         "epoch_stage2" : 10, # when "collab_learning" is True
         "trade_off_stage1": 0.3, # when "collab_learning" is True
