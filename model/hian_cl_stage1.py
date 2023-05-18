@@ -43,8 +43,8 @@ class HianCollabStage1(HianModel):
         x_ar = self.aspect_level_network(x_as, lda_groups, self.aspect_cross_attention)
         if self.training:
             x_ar_1 = self.aspect_level_network(x_as, lda_groups, self.aspect_cross_attention_1)
-            x_ar_2 = self.aspect_level_network(x_as_1, lda_groups, self.aspect_cross_attention_1)
-            x_ar_3 = self.aspect_level_network(x_as_1, lda_groups, self.aspect_cross_attention_1)
+            x_ar_2 = self.aspect_level_network(x_as_1, lda_groups, self.aspect_cross_attention_2)
+            x_ar_3 = self.aspect_level_network(x_as_1, lda_groups, self.aspect_cross_attention_3)
             return x_ar, x_ar_1, x_ar_2, x_ar_3
 
         return x_ar
