@@ -272,7 +272,7 @@ if __name__ == "__main__":
         "sentence_cnn_ksize" : 3,   # odd number 
         "batch_size": 32,
         "collab_learning": False,
-        "epoch" : 25, # when "collab_learning" is False
+        "epoch" : 10, # when "collab_learning" is False
         "epoch_stage1" : 10, # when "collab_learning" is True
         "epoch_stage2" : 10, # when "collab_learning" is True
         "trade_off_stage1": 0.3, # when "collab_learning" is True

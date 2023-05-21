@@ -41,6 +41,11 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
             fc_input = torch.cat((user_feature, item_feature), dim=1)
             output_logits = fc_layer(fc_input)
 
+            # Sometimes ouput would contain NaN
+            if torch.isnan(output_logits).any() == True:
+                print("Warning! Output logits contain NaN")
+            output_logits = torch.nan_to_num(output_logits, nan=0.0)
+
             loss = criterion(output_logits, torch.unsqueeze(labels.to(args["device"]).float(), dim=-1))
 
             # Gradients stored in the parameters in the previous step should be cleared out first.
@@ -114,6 +119,11 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
                 fc_input = torch.cat((user_feature, item_feature), dim=1)
                 output_logits = fc_layer(fc_input)
 
+                # Sometimes ouput would contain NaN
+                if torch.isnan(output_logits).any() == True:
+                    print("Warning! Output logits contain NaN")
+                output_logits = torch.nan_to_num(output_logits, nan=0.0)
+
                 # We can still compute the loss (but not the gradient).
                 labels = labels.to(args["device"])
                 loss = criterion(torch.squeeze(output_logits, dim=-1), labels.float())
@@ -124,7 +134,7 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
                 # Compute the information for current batch.
                 acc = (result_logits == labels).float().mean()
                 precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="weighted")
-                recall = recall_score(labels.cpu(), result_logits.cpu(), average="weighted")
+                recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="weighted")
                 f1 = f1_score(labels.cpu(), result_logits.cpu(), average="weighted")
                 # ndcg = ndcg_score(labels.unsqueeze(dim=-1).cpu(), result_logits.unsqueeze(dim=-1).cpu())
 
