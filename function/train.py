@@ -39,14 +39,14 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
             user_feature = torch.cat((weighted_user_logits, user_mf_emb.to(args["device"])), dim=1)
             item_feature = torch.cat((weighted_item_logits, item_mf_emb.to(args["device"])), dim=1)
             fc_input = torch.cat((user_feature, item_feature), dim=1)
-            output_logits = fc_layer(fc_input)
+            logits = fc_layer(fc_input)
 
             # Sometimes ouput would contain NaN
-            if torch.isnan(output_logits).any() == True:
+            if torch.isnan(logits).any() == True:
                 print("Warning! Output logits contain NaN")
-            output_logits = torch.nan_to_num(output_logits, nan=0.0)
+                logits = torch.nan_to_num(logits, nan=0.0)
 
-            loss = criterion(output_logits, torch.unsqueeze(labels.to(args["device"]).float(), dim=-1))
+            loss = criterion(logits, torch.unsqueeze(labels.to(args["device"]).float(), dim=-1))
 
             # Gradients stored in the parameters in the previous step should be cleared out first.
             optimizer.zero_grad()
@@ -61,14 +61,14 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
             optimizer.step()
 
             # Output after sigmoid is greater than 0.5 will be considered as 1, else 0.
-            result_logits = torch.where(output_logits > 0.5, 1, 0).squeeze(dim=-1)
+            result_logits = torch.where(logits > 0.5, 1, 0).squeeze(dim=-1)
             labels = labels.to(args["device"])
 
             # Compute the informations for current batch.
             acc = (result_logits == labels).float().mean()
-            precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="weighted")
-            recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="weighted")
-            f1 = f1_score(labels.cpu(), result_logits.cpu(), average="weighted")
+            precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
+            recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0)
+            f1 = f1_score(labels.cpu(), result_logits.cpu())
             # ndcg = ndcg_score(labels.unsqueeze(dim=-1).cpu(), result_logits.unsqueeze(dim=-1).cpu())
 
             # Record the information.
@@ -117,25 +117,25 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
                 user_feature = torch.cat((weighted_user_logits, user_mf_emb.to(args["device"])), dim=1)
                 item_feature = torch.cat((weighted_item_logits, item_mf_emb.to(args["device"])), dim=1)
                 fc_input = torch.cat((user_feature, item_feature), dim=1)
-                output_logits = fc_layer(fc_input)
+                logits = fc_layer(fc_input)
 
                 # Sometimes ouput would contain NaN
-                if torch.isnan(output_logits).any() == True:
+                if torch.isnan(logits).any() == True:
                     print("Warning! Output logits contain NaN")
-                output_logits = torch.nan_to_num(output_logits, nan=0.0)
+                    logits = torch.nan_to_num(logits, nan=0.0)
 
                 # We can still compute the loss (but not the gradient).
                 labels = labels.to(args["device"])
-                loss = criterion(torch.squeeze(output_logits, dim=-1), labels.float())
+                loss = criterion(torch.squeeze(logits, dim=-1), labels.float())
 
                 # Output after sigmoid is greater than "Q" will be considered as 1, else 0.
-                result_logits = torch.where(output_logits > 0.5, 1, 0).squeeze(dim=-1)
+                result_logits = torch.where(logits > 0.5, 1, 0).squeeze(dim=-1)
 
                 # Compute the information for current batch.
                 acc = (result_logits == labels).float().mean()
-                precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="weighted")
-                recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="weighted")
-                f1 = f1_score(labels.cpu(), result_logits.cpu(), average="weighted")
+                precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
+                recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0)
+                f1 = f1_score(labels.cpu(), result_logits.cpu())
                 # ndcg = ndcg_score(labels.unsqueeze(dim=-1).cpu(), result_logits.unsqueeze(dim=-1).cpu())
 
                 # Record the information.

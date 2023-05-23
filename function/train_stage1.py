@@ -201,6 +201,10 @@ def batch_train_stage1(args, review_emb, lda_groups, labels, *,
     arv, arv_1, arv_2, arv_3 = network(review_emb.to(args["device"]), lda_groups.to(args["device"]))
     logits, soft_label_1, soft_label_2, soft_label_3 = fc_layers(arv, arv_1, arv_2, arv_3)
 
+    if torch.isnan(logits).any() == True:
+        print("Warning! Output logits contain NaN")
+        logits = torch.nan_to_num(logits, nan=0.0)
+
     loss = ((1-args["trade_off_stage1"])*criterion(logits.reshape(labels.size()), labels.to(args["device"]).float())
              + args["trade_off_stage1"]*(criterion(logits, soft_label_1) + 
                                          criterion(logits, soft_label_2) + 
@@ -238,6 +242,10 @@ def batch_val_stage1(args, review_emb, lda_groups, labels,
     # Exacute models 
     arv = network(review_emb.to(args["device"]), lda_groups.to(args["device"]))
     logits = fc_layers(arv)
+
+    if torch.isnan(logits).any() == True:
+        print("Warning! Output logits contain NaN")
+        logits = torch.nan_to_num(logits, nan=0.0)
 
     # We can still compute the loss (but not the gradient).
     loss = criterion(logits.reshape(labels.size()), labels.to(args["device"]).float())

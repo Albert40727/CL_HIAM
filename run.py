@@ -170,7 +170,7 @@ def main(**args):
     if not args["collab_learning"] and args["test"]:
         if args["train"]:
             checkpoint = torch.load(BASE_PATH)
-            print("Apply trained model param of min val loss.")
+            print("Apply trained model param of the highest F1 score.")
         else:
             SPEC_PATH = args["model_save_path_base"] + "model_base_0509052647.pt" # Specify .pt you want to load
             checkpoint = torch.load(SPEC_PATH)

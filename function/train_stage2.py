@@ -74,6 +74,10 @@ def train_stage2_model(args,
             fc_input_3 = torch.cat((user_feature_3, item_feature_3), dim=1)
             logits, soft_label_1, soft_label_2, soft_label_3 = fc_layers_stage2(fc_input, fc_input_1, fc_input_2, fc_input_3)
 
+            if torch.isnan(logits).any() == True:
+                print("Warning! Output logits contain NaN")
+                logits = torch.nan_to_num(logits, nan=0.0)
+
             # model.train()  
             loss = ((1-args["trade_off_stage2"])*criterion(logits.reshape(labels.size()), labels.to(args["device"]).float())
                      + args["trade_off_stage2"]*(criterion(logits, soft_label_1) + 
