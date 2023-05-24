@@ -148,9 +148,12 @@ def test_model_topk(args, test_loader, user_network, item_network, co_attention,
     global_hit_5 = 0
     global_like = 0
 
+    new_hit_5 = []
+    new_hit_10 = []
+
     global_labels = []
     global_prediction = []
-    
+
     # Calculate each score
     for user in predict_incidence_df.index:
         
@@ -175,25 +178,37 @@ def test_model_topk(args, test_loader, user_network, item_network, co_attention,
         # Top-10 hit ratio
         user_top_10_label = user_topk_label[:10]
         global_hit_10 += len(user_top_10_label[user_top_10_label==1])
+        if len(user_top_10_label[user_top_10_label==1]) > 0:
+            new_hit_10.append(1)
+        else:
+            new_hit_10.append(0)
 
         # Top-5 hit ratio
         user_top_5_label = user_topk_label[:5]
         global_hit_5 += len(user_top_5_label[user_top_5_label==1])
+        if len(user_top_5_label[user_top_5_label==1]) > 0:
+            new_hit_5.append(1)
+        else:
+            new_hit_5.append(0)
 
-    test_precision = precision_score(global_labels, global_prediction, zero_division=0, average="macro")
-    test_recall = recall_score(global_labels, global_prediction, zero_division=0, average="macro")
-    test_f1 = f1_score(global_labels, global_prediction, zero_division=0, average="macro")
+    test_precision = precision_score(global_labels, global_prediction, zero_division=0, average="samples")
+    test_recall = recall_score(global_labels, global_prediction, zero_division=0, average="samples")
+    test_f1 = f1_score(global_labels, global_prediction, zero_division=0, average="samples")
 
-    test_top_10_hr = global_hit_10 / global_like
-    test_top_5_hr = global_hit_5 / global_like
-
-    test_map = average_precision_score(label_incidence_df.to_numpy(), predict_incidence_df.to_numpy())
+    test_map = average_precision_score(label_incidence_df.to_numpy(), predict_incidence_df.to_numpy(), average="samples")
     test_ndcg = ndcg(label_incidence_df.to_numpy(), predict_incidence_df.to_numpy(), TOP_N)
 
+    # test_top_10_hr = global_hit_10 / global_like
+    # test_top_5_hr = global_hit_5 / global_like
+
+    new_test_hit_10 = sum(new_hit_10) / len(new_hit_10)
+    new_test_hit_5 = sum(new_hit_5) / len(new_hit_5)
+
     print(f"[ Test base ] precision@{TOP_N} = {test_precision:.4f}, recall@{TOP_N} = {test_recall:.4f}, f1@{TOP_N} = {test_f1:.4f}")
-    print(f"[ Test base ] MAP@{TOP_N} = {test_map:.4f}, NDCG@{TOP_N} = {test_ndcg:.4f}, HR@10 = {test_top_10_hr:.4f}, HR@5 = {test_top_5_hr:.4f}")
+    print(f"[ Test base ] MAP@{TOP_N} = {test_map:.4f}, NDCG@{TOP_N} = {test_ndcg:.4f}, HR@10 = {new_test_hit_10:.4f}, HR@5 = {new_test_hit_5:.4f}")
+
     with open('output/history/test_base_topk.csv','a') as file:
-        file.write(time.strftime("%m-%d %H:%M")+","+f"test,{test_precision:.4f},{test_recall:.4f},{test_f1:.4f},{test_map:.4f},{test_ndcg:.4f},{test_top_10_hr:.4f},{test_top_5_hr:.4f}" + "\n")
+        file.write(time.strftime("%m-%d %H:%M")+","+f"test,{test_precision:.4f},{test_recall:.4f},{test_f1:.4f},{test_map:.4f},{test_ndcg:.4f},{new_test_hit_10:.4f},{new_test_hit_5:.4f}" + "\n")
 
     
 def test_collab_model(
