@@ -15,7 +15,7 @@ from function.review_dataset import ReviewDataset, ReviewDataseStage1
 from function.train import train_model, draw_acc_curve, draw_loss_curve
 from function.train_stage1 import train_stage1_model, draw_acc_curve_stage1, draw_loss_curve_stage1
 from function.train_stage2 import train_stage2_model, draw_acc_curve_stage2, draw_loss_curve_stage2
-from function.test import test_model, test_model_topk, test_collab_model
+from function.test import test_model, test_model_topk, test_collab_model, test_collab_model_topk
 
                                                                    
 def main(**args):
@@ -128,11 +128,6 @@ def main(**args):
         STAGE1_PATH = args["model_save_path_cl"] + "model_cl_stage1_{}.pt".format(time.strftime("%m%d%H%M%S"))
         torch.save(save_param_stage1, STAGE1_PATH)
 
-        # //////////////////////add//////////////////////////////
-        # STAGE1_PATH = args["model_save_path_cl"] + "model_cl_stage1_0423044524.pt"
-        # save_param_stage1 = torch.load(args["model_save_path_cl"] + "model_cl_stage1_0423044524.pt")
-        # //////////////////////add//////////////////////////////
-
         # Load stage1 model before training stage2
         user_network_stage1.load_state_dict(save_param_stage1["user_network_stage1"])
         item_network_stage1.load_state_dict(save_param_stage1["item_network_stage1"])
@@ -159,8 +154,8 @@ def main(**args):
         torch.save(save_param_stage2, STAGE2_PATH)
         
         # Plot stage1 loss & acc
-        # draw_loss_curve_stage1(t_user_loss_stage1, v_user_loss_stage1, t_item_loss_stage1, v_item_loss_stage1)
-        # draw_acc_curve_stage1(t_user_acc_stage1, v_user_acc_stage1, t_item_acc_stage1, v_item_acc_stage1)
+        draw_loss_curve_stage1(t_user_loss_stage1, v_user_loss_stage1, t_item_loss_stage1, v_item_loss_stage1)
+        draw_acc_curve_stage1(t_user_acc_stage1, v_user_acc_stage1, t_item_acc_stage1, v_item_acc_stage1)
         
         # Plot stage2 loss & acc
         draw_loss_curve_stage2(t_loss_stage2, v_loss_stage2)
@@ -200,12 +195,12 @@ def main(**args):
             fc_layer,
         )
 
-    # testing collab model0***
+    # testing collab model
     elif args["collab_learning"] and args["test"]:
         if args["train"]:
             checkpoint_stage1 = torch.load(STAGE1_PATH)
             checkpoint_stage2 = torch.load(STAGE2_PATH)
-            print("Apply collab model param of min val loss.")
+            print("Apply trained model param of the highest F1 score.")
         else:
             SPEC_PATH_STAGE1 = args["model_save_path_cl"] + "model_cl_stage1_0423044524.pt" # Specify .pt you want to load
             SPEC_PATH_STAGE2 = args["model_save_path_cl"] + "model_cl_stage2_0426041747.pt" # Specify .pt you want to load
@@ -232,7 +227,7 @@ def main(**args):
         fc_layers_stage2.load_state_dict(checkpoint_stage2["fc_layer_stage2"])
 
         # Exacute test
-        test_collab_model(
+        test_collab_model_topk(
             args,
             test_loader,
             user_network_stage1,

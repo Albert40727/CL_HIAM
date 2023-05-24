@@ -19,7 +19,7 @@ def train_stage1_model(args,
     
     # For recording history usage
     t_user_loss_list_stage1, t_user_acc_list_stage1, t_item_loss_list_stage1, t_item_acc_list_stage1 = [], [], [], []
-    v_user_loss_list_stage1, v_user_acc_list_stage1, v_item_loss_list_stage1, v_item_acc_list_stage1 = [], [], [], []
+    v_user_loss_list_stage1, v_user_acc_list_stage1, v_item_loss_list_stage1, v_item_acc_list_stage1, v_user_f1_list_stage1, v_item_f1_list_stage1 = [], [], [], [], [], []
     save_param = {}
 
     print("-------------------------- STAGE1 START --------------------------")
@@ -175,15 +175,18 @@ def train_stage1_model(args,
         v_item_loss_list_stage1.append(item_val_loss)
         v_item_acc_list_stage1.append(item_val_acc.cpu())
 
+        v_user_f1_list_stage1.append(user_val_f1)
+        v_item_f1_list_stage1.append(item_val_f1)
+
         # Param need to be saved according to min loss of val
-        if user_val_loss == min(v_user_loss_list_stage1):
+        if user_val_f1 == max(v_user_f1_list_stage1):
             save_param.update({
                 'user_network_stage1': user_network.state_dict(),
                 'user_fc_layer_stage1' : user_fc_layer_stage1.state_dict(),
                 'user_optimizer_stage1' : optimizers[0].state_dict(),
                 })
 
-        if item_val_loss == min(v_item_loss_list_stage1):
+        if item_val_f1 == max(v_item_f1_list_stage1):
             save_param.update({
                 'item_network_stage1': item_network.state_dict(),
                 'item_fc_layer_stage1' : item_fc_layer_stage1.state_dict(),

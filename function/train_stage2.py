@@ -23,7 +23,7 @@ def train_stage2_model(args,
                        optimizer):
     
     # For recording history usage
-    t_loss_list_stage2, t_acc_list_stage2 , v_loss_list_stage2, v_acc_list_stage2 = [], [], [], []
+    t_loss_list_stage2, t_acc_list_stage2 , v_loss_list_stage2, v_acc_list_stage2, v_f1_list_stage2 = [], [], [], [], []
     save_param = {}
 
     print("-------------------------- STAGE2 START --------------------------")
@@ -198,9 +198,10 @@ def train_stage2_model(args,
         t_acc_list_stage2.append(train_acc.cpu())
         v_loss_list_stage2.append(valid_loss)
         v_acc_list_stage2.append(valid_acc.cpu())
+        v_f1_list_stage2.append(valid_f1)
 
         # Param need to be saved according to min loss of val
-        if valid_loss == min(v_loss_list_stage2):
+        if valid_f1 == max(v_f1_list_stage2):
             save_param.update({
                 'user_review_network' : user_review_network.state_dict(),
                 'item_review_network' : item_review_network.state_dict(),
