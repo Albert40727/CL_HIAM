@@ -171,7 +171,8 @@ class HianModel(nn.Module):
         x = x.reshape(-1, x.size(2), x.size(3))
         x = self.word_level_network(x, self.word_cnn_network, self.word_attention)
         x = self.sentence_level_network(x, self.sentence_cnn_network, self.sent_cross_attention, lda_groups)
-        x = self.aspect_level_network(x, lda_groups, self.aspect_cross_attention)
+        # x = self.aspect_level_network(x, lda_groups, self.aspect_cross_attention)
+        x = torch.mean(x, dim=1) 
         x = x.reshape(batch_size, num_review, -1)
         x = self.review_level_network(x, review_mask, self.review_cross_attention)
 

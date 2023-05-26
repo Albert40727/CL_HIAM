@@ -1,6 +1,6 @@
+import time
 import torch
 import torch.nn as nn
-import time
 from model.hian import HianModel
 from model.fc_layer import FcLayer
 from model.fc_layer_stage1 import FcLayerStage1
@@ -167,7 +167,7 @@ def main(**args):
             checkpoint = torch.load(BASE_PATH)
             print("Apply trained model param of the highest F1 score.")
         else:
-            SPEC_PATH = args["model_save_path_base"] + "model_base_0509052647.pt" # Specify .pt you want to load
+            SPEC_PATH = args["model_save_path_base"] + "model_base_0525190917.pt" # Specify .pt you want to load
             checkpoint = torch.load(SPEC_PATH)
             print(f"Apply specified model param.")
 

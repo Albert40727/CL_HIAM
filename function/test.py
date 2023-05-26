@@ -4,12 +4,8 @@ import math
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
-from itertools import product
-from sklearn.metrics import precision_score, recall_score, f1_score, ndcg_score, average_precision_score
+from sklearn.metrics import precision_score, recall_score, f1_score, average_precision_score
 
-
-# def mapk(actuals, predicted, k=0):
-#   return np.mean([apk(a,p,k) for a,p in product([actuals], [predicted])])
 
 def ndcg(y_true, y_pred, top_K=0):
     # From 趙儀
@@ -120,8 +116,11 @@ def test_model_topk(args, test_loader, user_network, item_network, co_attention,
             user_logits = user_network(user_review_emb.to(args["device"]), user_review_mask.to(args["device"]), user_lda_groups.to(args["device"]))
             item_logits = item_network(item_review_emb.to(args["device"]), item_review_mask.to(args["device"]), item_lda_groups.to(args["device"]))
             weighted_user_logits,  weighted_item_logits = co_attention(user_logits, item_logits)
+
             user_feature = torch.cat((weighted_user_logits, user_mf_emb.to(args["device"])), dim=1)
             item_feature = torch.cat((weighted_item_logits, item_mf_emb.to(args["device"])), dim=1)
+            # user_feature, item_feature = weighted_user_logits, weighted_item_logits
+
             fc_input = torch.cat((user_feature, item_feature), dim=1)
             output_logits = fc_layer(fc_input)
 
@@ -209,6 +208,7 @@ def test_model_topk(args, test_loader, user_network, item_network, co_attention,
     print(f"[ Test base ] MAP@{TOP_N} = {test_map:.4f}, NDCG@{TOP_N} = {test_ndcg:.4f}, HR@10 = {test_hit_10:.4f}, HR@5 = {test_hit_5:.4f}")
 
     with open('output/history/test_base_topk.csv','a') as file:
+        # Hit ratio will all ways be top10 and top5
         file.write(time.strftime("%m-%d %H:%M")+","+f"test,{test_precision:.4f},{test_recall:.4f},{test_f1:.4f},{test_map:.4f},{test_ndcg:.4f},{test_hit_10:.4f},{test_hit_5:.4f}" + "\n")
 
 def test_collab_model(

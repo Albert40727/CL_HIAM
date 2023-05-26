@@ -4,7 +4,7 @@ import time
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from sklearn.metrics import precision_score, recall_score, f1_score, ndcg_score
+from sklearn.metrics import precision_score, recall_score, f1_score
 
 
 def train_stage2_model(args, 

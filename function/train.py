@@ -3,7 +3,7 @@ import time
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from sklearn.metrics import precision_score, recall_score, f1_score, ndcg_score
+from sklearn.metrics import precision_score, recall_score, f1_score
 
 def train_model(args, train_loader, val_loader, user_network, item_network, co_attention, fc_layer,
                  *, criterion, models_params, optimizer):
@@ -36,8 +36,11 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
             user_logits = user_network(user_review_emb.to(args["device"]), user_review_mask.to(args["device"]), user_lda_groups.to(args["device"]))
             item_logits = item_network(item_review_emb.to(args["device"]), item_review_mask.to(args["device"]), item_lda_groups.to(args["device"]))
             weighted_user_logits,  weighted_item_logits = co_attention(user_logits, item_logits)
+
             user_feature = torch.cat((weighted_user_logits, user_mf_emb.to(args["device"])), dim=1)
             item_feature = torch.cat((weighted_item_logits, item_mf_emb.to(args["device"])), dim=1)
+            # user_feature,  item_feature = weighted_user_logits, weighted_item_logits
+
             fc_input = torch.cat((user_feature, item_feature), dim=1)
             logits = fc_layer(fc_input)
 
@@ -114,8 +117,11 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
                 user_logits = user_network(user_review_emb.to(args["device"]), user_review_mask.to(args["device"]), user_lda_groups.to(args["device"]))
                 item_logits = item_network(item_review_emb.to(args["device"]), item_review_mask.to(args["device"]),item_lda_groups.to(args["device"]))
                 weighted_user_logits,  weighted_item_logits = co_attention(user_logits, item_logits)
+
                 user_feature = torch.cat((weighted_user_logits, user_mf_emb.to(args["device"])), dim=1)
                 item_feature = torch.cat((weighted_item_logits, item_mf_emb.to(args["device"])), dim=1)
+                # user_feature, item_feature = weighted_user_logits, weighted_item_logits
+                
                 fc_input = torch.cat((user_feature, item_feature), dim=1)
                 logits = fc_layer(fc_input)
 

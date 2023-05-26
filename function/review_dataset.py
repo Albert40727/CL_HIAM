@@ -92,8 +92,6 @@ class ReviewDataset(Dataset):
 
     def __len__(self):
         return len(self.review_df)
-    
-
 class ReviewDataseStage1(ReviewDataset):
     def __init__(self, args, *, mode):
         super().__init__(args, mode=mode)
