@@ -59,7 +59,6 @@ class HianModel(nn.Module):
         self.word_cnn_network = nn.Sequential(
             nn.Conv1d(768, 512, self.args["word_cnn_ksize"]),
             nn.ReLU(),
-            nn.Dropout(p=0.2),
         )
         self.word_attention = nn.MultiheadAttention(512, num_heads=2, batch_first=True)
         
@@ -68,14 +67,12 @@ class HianModel(nn.Module):
         self.sentence_cnn_network = nn.Sequential(
             nn.Conv1d(512, 512, self.args["sentence_cnn_ksize"]),
             nn.ReLU(),
-            nn.Dropout(p=0.2),
         )
         self.sent_cross_attention = Multihead_Cross_attention(512, 512, 512, num_heads=2)
 
         # Aspect-Level Network
         self.lda_group_num = self.args["lda_group_num"]
         self.aspect_cross_attention = Multihead_Cross_attention(512, 512, 512, num_heads=2)
-
         
         # Review-Level Network
         self.review_cross_attention = Multihead_Cross_attention(512, 512, 512, num_heads=2)
@@ -171,8 +168,8 @@ class HianModel(nn.Module):
         x = x.reshape(-1, x.size(2), x.size(3))
         x = self.word_level_network(x, self.word_cnn_network, self.word_attention)
         x = self.sentence_level_network(x, self.sentence_cnn_network, self.sent_cross_attention, lda_groups)
-        # x = self.aspect_level_network(x, lda_groups, self.aspect_cross_attention)
-        x = torch.mean(x, dim=1) 
+        x = self.aspect_level_network(x, lda_groups, self.aspect_cross_attention)
+        # x = torch.mean(x, dim=1) 
         x = x.reshape(batch_size, num_review, -1)
         x = self.review_level_network(x, review_mask, self.review_cross_attention)
 

@@ -37,9 +37,9 @@ def train_stage1_model(args,
         user_train_loss_stage1, user_train_accs_stage1, user_train_precisions_stage1, user_train_recalls_stage1, user_train_f1s_stage1 = [], [], [], [], []
         item_train_loss_stage1, item_train_accs_stage1, item_train_precisions_stage1, item_train_recalls_stage1, item_train_f1s_stage1 = [], [], [], [], []
 
-        for batch in tqdm(train_loader):
-            # Exacute models
-            user_review_emb, item_review_emb, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, user_labels, item_labels = batch
+        for batch in tqdm(train_loader[0]):
+            # Exacute user stage1 models
+            user_review_emb, user_lda_groups, user_mf_emb, user_labels = batch
             loss, acc, precision, recall, f1 = \
             batch_train_stage1(args, user_review_emb, user_lda_groups, user_labels,
                                target = "user",
@@ -55,7 +55,10 @@ def train_stage1_model(args,
             user_train_precisions_stage1.append(precision)
             user_train_recalls_stage1.append(recall)
             user_train_f1s_stage1.append(f1)
-            
+        
+        for batch in tqdm(train_loader[1]):
+            # Exacute item stage1 models
+            item_review_emb, item_lda_groups, item_mf_emb, item_labels = batch
             loss, acc, precision, recall, f1 = \
             batch_train_stage1(args, item_review_emb, item_lda_groups, item_labels,
                                target = "item",
@@ -107,12 +110,12 @@ def train_stage1_model(args,
         item_val_loss_stage1, item_val_accs_stage1, item_val_precisions_stage1, item_val_recalls_stage1, item_val_f1s_stage1 = [], [], [], [], []
         
         # Iterate the validation set by batches.
-        for batch in tqdm(val_loader):
-
+        for batch in tqdm(val_loader[0]):
+            # User stage1 model
             # We don't need gradient in validation.
             # Using torch.no_grad() accelerates the forward process.
             with torch.no_grad():
-                user_review_emb, item_review_emb, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, user_labels, item_labels = batch
+                user_review_emb, user_lda_groups, user_mf_emb, user_labels = batch
                 
                 loss, acc, precision, recall, f1 = \
                 batch_val_stage1(args, user_review_emb, user_lda_groups, user_labels,
@@ -126,6 +129,14 @@ def train_stage1_model(args,
                 user_val_precisions_stage1.append(precision)
                 user_val_recalls_stage1.append(recall)
                 user_val_f1s_stage1.append(f1)
+
+        
+        for batch in tqdm(val_loader[1]):
+            # Item stage1 model
+            # We don't need gradient in validation.
+            # Using torch.no_grad() accelerates the forward process.
+            with torch.no_grad():     
+                item_review_emb, item_lda_groups, user_mf_emb, item_labels = batch 
 
                 loss, acc, precision, recall, f1 = \
                 batch_val_stage1(args, item_review_emb, item_lda_groups, item_labels,
@@ -204,8 +215,8 @@ def batch_train_stage1(args, review_emb, lda_groups, labels, *,
     arv, arv_1, arv_2, arv_3 = network(review_emb.to(args["device"]), lda_groups.to(args["device"]))
     logits, soft_label_1, soft_label_2, soft_label_3 = fc_layers(arv, arv_1, arv_2, arv_3)
 
-    if torch.isnan(logits).any() == True:
-        print("Warning! Output logits contain NaN")
+    if torch.isnan(torch.stack((logits, soft_label_1, soft_label_2, soft_label_3))).any() == True:
+        print(f"Warning! {target} network's output logits contain NaN")
         logits = torch.nan_to_num(logits, nan=0.0)
 
     loss = ((1-args["trade_off_stage1"])*criterion(logits.reshape(labels.size()), labels.to(args["device"]).float())
@@ -231,9 +242,9 @@ def batch_train_stage1(args, review_emb, lda_groups, labels, *,
 
     # Compute the informations for current batch.
     acc = (result_logits == labels).float().mean()
-    precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="weighted")
-    recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="weighted")
-    f1 = f1_score(labels.cpu(), result_logits.cpu(), average="weighted")
+    precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
+    recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0)
+    f1 = f1_score(labels.cpu(), result_logits.cpu())
 
     # rate = sum(result_logits==labels)/sum(labels)
     # print(f"loss:{loss:.4f}", f"result logit: {sum(result_logits)}", f"labels: {sum(labels)}", f"acc: {rate:.3f}", f"precision: {precision:.3f}", f"recall: {recall:.3f}")
@@ -264,8 +275,7 @@ def batch_val_stage1(args, review_emb, lda_groups, labels,
     f1 = f1_score(labels.cpu(), result_logits.cpu(), average="weighted")
     # ndcg = ndcg_score(labels.unsqueeze(dim=-1).cpu(), result_logits.unsqueeze(dim=-1).cpu())
 
-    return loss.item(), acc, precision, recall, f1
-    
+    return loss.item(), acc, precision, recall, f1   
 
 def epoch_info(loss, accs, precisions, recalls, f1s, *, mode, target, epoch, n_epochs):
     # Calculate all the info and print
@@ -274,10 +284,10 @@ def epoch_info(loss, accs, precisions, recalls, f1s, *, mode, target, epoch, n_e
     mean_precision = sum(precisions) / len(precisions)
     mean_recall = sum(recalls) / len(recalls)
     mean_f1 = sum(f1s) / len(f1s)
-    print(f"[ {mode} {target}-stage1 | {epoch + 1:03d}/{n_epochs:03d} ] loss = {mean_loss:.5f}, acc = {mean_acc:.4f}, precision = {mean_precision:.4f}, recall = {mean_recall:.4f}, f1 = {mean_f1}")
+    print(f"[ {mode} {target}-stage1 | {epoch + 1:03d}/{n_epochs:03d} ] loss = {mean_loss:.5f}, acc = {mean_acc:.4f}, precision = {mean_precision:.4f}, recall = {mean_recall:.4f}, f1 = {mean_f1:.4f}")
 
     with open(f'output/history/{target}_stage1.csv','a') as file:
-        file.write(time.strftime("%m-%d %H:%M")+","+f"{mode},{target}-stage1,{epoch + 1:03d}/{n_epochs:03d},{mean_loss:.5f},{mean_acc:.4f},{mean_precision:.4f},{mean_recall:.4f},{mean_f1}" + "\n")
+        file.write(time.strftime("%m-%d %H:%M")+","+f"{mode},{target}-stage1,{epoch + 1:03d}/{n_epochs:03d},{mean_loss:.5f},{mean_acc:.4f},{mean_precision:.4f},{mean_recall:.4f},{mean_f1:.4f}" + "\n")
     
     return mean_loss, mean_acc, mean_precision, mean_recall, mean_f1
 

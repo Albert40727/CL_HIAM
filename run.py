@@ -11,7 +11,7 @@ from model.hian_cl_stage1 import HianCollabStage1
 from model.review_net_stage2 import ReviewNetworkStage2
 from model.bp_gate import BackPropagationGate
 from torch.utils.data import DataLoader
-from function.review_dataset import ReviewDataset, ReviewDataseStage1
+from function.review_dataset import ReviewDataset, UserReviewDataseStage1, ItemReviewDataseStage1
 from function.train import train_model, draw_acc_curve, draw_loss_curve
 from function.train_stage1 import train_stage1_model, draw_acc_curve_stage1, draw_loss_curve_stage1
 from function.train_stage2 import train_stage2_model, draw_acc_curve_stage2, draw_loss_curve_stage2
@@ -65,10 +65,21 @@ def main(**args):
     elif args["collab_learning"] and args["train"]:
         
         # Create stage1 dataset and loader
-        train_dataset_stage1 = ReviewDataseStage1(args, mode="train")
-        val_dataset_stage1 = ReviewDataseStage1(args, mode="val")
-        train_loader_stage1 = DataLoader(train_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
-        val_loader_stage1 = DataLoader(val_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
+        # train_dataset_stage1 = ReviewDataseStage1(args,mode="train")
+        # val_dataset_stage1 = ReviewDataseStage1(args, mode="val")
+
+        user_train_dataset_stage1 = UserReviewDataseStage1(args,mode="train")
+        user_val_dataset_stage1 = UserReviewDataseStage1(args, mode="val")
+        item_train_dataset_stage1 = ItemReviewDataseStage1(args,mode="train")
+        item_val_dataset_stage1 = ItemReviewDataseStage1(args, mode="val")
+
+        # train_loader_stage1 = DataLoader(train_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
+        # val_loader_stage1 = DataLoader(val_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
+        
+        user_train_loader_stage1 = DataLoader(user_train_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
+        user_val_loader_stage1 = DataLoader(user_val_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
+        item_train_loader_stage1 = DataLoader(item_train_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
+        item_val_loader_stage1 = DataLoader(item_val_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
 
         # Init model
         # Stage 1
@@ -87,8 +98,8 @@ def main(**args):
         bp_gate = BackPropagationGate()
 
         # Loss criteria
-        user_criterion_stage1 = nn.BCELoss()
-        item_criterion_stage1 = nn.BCELoss()
+        user_criterion_stage1 = nn.CrossEntropyLoss()
+        item_criterion_stage1 = nn.CrossEntropyLoss()
         criterion_stage2 = nn.BCELoss()
 
         # Parameters
@@ -103,9 +114,9 @@ def main(**args):
                          list(co_attentions.parameters()) + 
                          list(fc_layers_stage2.parameters()))
         
-        user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=1e-3, weight_decay=1e-4)
-        item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-3, weight_decay=1e-4)
-        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-3, weight_decay=1e-4)
+        user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=1e-4, weight_decay=1e-5)
+        item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-5, weight_decay=1e-6)
+        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-4, weight_decay=1e-5)
 
         # Training 
         # Stage1 
@@ -113,8 +124,8 @@ def main(**args):
           v_user_loss_stage1, v_user_acc_stage1, v_item_loss_stage1, v_item_acc_stage1, save_param_stage1) = \
         train_stage1_model(
             args,                                                           
-            train_loader_stage1,
-            val_loader_stage1,
+            [user_train_loader_stage1, item_train_loader_stage1],
+            [user_val_loader_stage1, item_val_loader_stage1],
             user_network_stage1,
             item_network_stage1, 
             user_fc_layer_stage1,
@@ -266,12 +277,12 @@ if __name__ == "__main__":
         "word_cnn_ksize" : 5,   # odd number 
         "sentence_cnn_ksize" : 3,   # odd number 
         "batch_size": 32,
-        "collab_learning": False,
+        "collab_learning": True,
         "epoch" : 10, # when "collab_learning" is False
-        "epoch_stage1" : 10, # when "collab_learning" is True
+        "epoch_stage1" : 50, # when "collab_learning" is True
         "epoch_stage2" : 10, # when "collab_learning" is True
-        "trade_off_stage1": 0.3, # when "collab_learning" is True
-        "trade_off_stage2": 0.3, # when "collab_learning" is True
+        "trade_off_stage1": 0.5, # when "collab_learning" is True, portion of soft-label
+        "trade_off_stage2": 0.5, # when "collab_learning" is True, portion of soft-label
     }
 
     print("Device: ", device)
