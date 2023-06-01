@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.utils.rnn import pad_sequence
 from .attention_utils import Multihead_Cross_attention
 
 
@@ -12,7 +11,7 @@ class HianModel(nn.Module):
             input:  x: 32, R, 250, 768 (B, R, W*S, D)
                             |reshape
                             v
-                    x: 32*R, 250, 768 (B*R, W*S, D)
+                    x: 32*R, 250, 768  (B*R, W*S, D)
                             |
                             |w_cnn_network + attention
                             v
@@ -24,15 +23,15 @@ class HianModel(nn.Module):
                             |
                             |get_aspect_emb_from_sent (LDA) 
                             v             
-                    x: 32*R, 6, D   (B*R, A, D)
+                    x: 32*R, 6, D  (B*R, A, D)
                             |
                             |aspect attention
                             v
-                    x: 32, R, D  (B, R, D)
+                    x: 32, R, D (B, R, D)
                             |
                             |review_network
                             v  
-                        x: 32, D
+                    x: 32, R, D (B, R, D)
                             |
                             |co_attention (Outside HianModel)
                             v
@@ -169,7 +168,7 @@ class HianModel(nn.Module):
         x = self.word_level_network(x, self.word_cnn_network, self.word_attention)
         x = self.sentence_level_network(x, self.sentence_cnn_network, self.sent_cross_attention, lda_groups)
         x = self.aspect_level_network(x, lda_groups, self.aspect_cross_attention)
-        # x = torch.mean(x, dim=1) 
+        # x = torch.sum(x, dim=1) 
         x = x.reshape(batch_size, num_review, -1)
         x = self.review_level_network(x, review_mask, self.review_cross_attention)
 
