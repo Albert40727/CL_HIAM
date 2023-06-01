@@ -9,6 +9,7 @@ class HianModel(nn.Module):
     B: Batch, R: User/Item max review, W: Max Word, S:Max Sentence, A:Aspect, D:Emb Dimension 
 
             input:  x: 32, R, 250, 768 (B, R, W*S, D)
+                            |
                             |reshape
                             v
                     x: 32*R, 250, 768  (B*R, W*S, D)
@@ -45,7 +46,7 @@ class HianModel(nn.Module):
     Weighted Sentence Emb:  torch.Size([32*50, 10, 512])
     Aspect Emb:             torch.Size([32*50, 6, 512])
     Aspect Review Emb:      torch.Size([32, 50, 512])
-    Item Reiew feature:     torch.Size([32, 512])
+    Item Reiew feature:     torch.Size([32, 50, 512])
     Item Emb:               torch.Size([32, 512]) (after co-attention) 
     """
 
@@ -167,8 +168,12 @@ class HianModel(nn.Module):
         x = x.reshape(-1, x.size(2), x.size(3))
         x = self.word_level_network(x, self.word_cnn_network, self.word_attention)
         x = self.sentence_level_network(x, self.sentence_cnn_network, self.sent_cross_attention, lda_groups)
+
+        # If you want aspect-level
         x = self.aspect_level_network(x, lda_groups, self.aspect_cross_attention)
+        # If you don't want aspect-level
         # x = torch.sum(x, dim=1) 
+
         x = x.reshape(batch_size, num_review, -1)
         x = self.review_level_network(x, review_mask, self.review_cross_attention)
 

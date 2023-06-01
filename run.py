@@ -61,16 +61,10 @@ def main(**args):
     elif args["collab_learning"] and args["train"]:
         
         # Create stage1 dataset and loader
-        # train_dataset_stage1 = ReviewDataseStage1(args,mode="train")
-        # val_dataset_stage1 = ReviewDataseStage1(args, mode="val")
-
         user_train_dataset_stage1 = UserReviewDataseStage1(args,mode="train")
         user_val_dataset_stage1 = UserReviewDataseStage1(args, mode="val")
         item_train_dataset_stage1 = ItemReviewDataseStage1(args,mode="train")
         item_val_dataset_stage1 = ItemReviewDataseStage1(args, mode="val")
-
-        # train_loader_stage1 = DataLoader(train_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
-        # val_loader_stage1 = DataLoader(val_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
         
         user_train_loader_stage1 = DataLoader(user_train_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
         user_val_loader_stage1 = DataLoader(user_val_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
