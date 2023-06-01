@@ -132,8 +132,8 @@ def test_model_topk(args, test_loader, user_network, item_network, co_attention,
             labels = labels.to(args["device"])
 
     # For topk score calculation
-    TOP_N = 10
-    top_k_df = predict_incidence_df.apply(lambda s, n: pd.Series(s.nlargest(n).index), axis=1, n=TOP_N)
+    TOP_K = 10
+    top_k_df = predict_incidence_df.apply(lambda s, n: pd.Series(s.nlargest(n).index), axis=1, n=TOP_K)
 
     # Save result
     predict_incidence_df.to_csv('output/history/probability_df.csv')
@@ -173,7 +173,7 @@ def test_model_topk(args, test_loader, user_network, item_network, co_attention,
 
         # get 01 prediction from probability
         pred_tensor = torch.tensor(user_pred_prob.values)
-        value, idx = pred_tensor.topk(k=TOP_N)
+        value, idx = pred_tensor.topk(k=TOP_K)
         user_pred_binary = torch.zeros(pred_tensor.size())
         user_pred_binary[idx] = 1 
 
@@ -199,13 +199,13 @@ def test_model_topk(args, test_loader, user_network, item_network, co_attention,
     test_f1 = f1_score(global_labels, global_prediction, zero_division=0, average="samples")
 
     test_map = average_precision_score(label_incidence_df.to_numpy(), predict_incidence_df.to_numpy(), average="samples")
-    test_ndcg = ndcg(label_incidence_df.to_numpy(), predict_incidence_df.to_numpy(), TOP_N)
+    test_ndcg = ndcg(label_incidence_df.to_numpy(), predict_incidence_df.to_numpy(), TOP_K)
 
     test_hit_10 = sum(hit_10) / len(hit_10)
     test_hit_5 = sum(hit_5) / len(hit_5)
 
-    print(f"[ Test base ] precision@{TOP_N} = {test_precision:.4f}, recall@{TOP_N} = {test_recall:.4f}, f1@{TOP_N} = {test_f1:.4f}")
-    print(f"[ Test base ] MAP@{TOP_N} = {test_map:.4f}, NDCG@{TOP_N} = {test_ndcg:.4f}, HR@10 = {test_hit_10:.4f}, HR@5 = {test_hit_5:.4f}")
+    print(f"[ Test base ] precision@{TOP_K} = {test_precision:.4f}, recall@{TOP_K} = {test_recall:.4f}, f1@{TOP_K} = {test_f1:.4f}")
+    print(f"[ Test base ] MAP@{TOP_K} = {test_map:.4f}, NDCG@{TOP_K} = {test_ndcg:.4f}, HR@10 = {test_hit_10:.4f}, HR@5 = {test_hit_5:.4f}")
 
     with open('output/history/test_base_topk.csv','a') as file:
         # Hit ratio will all ways be top10 and top5
@@ -333,8 +333,8 @@ def test_collab_model_topk(
                 predict_incidence_df.at[int(user), int(item)] = float(logit)
 
     # For topk score calculation
-    TOP_N = 10
-    top_k_df = predict_incidence_df.apply(lambda s, n: pd.Series(s.nlargest(n).index), axis=1, n=TOP_N)
+    top_k_list = [10, 5]
+    top_k_df = predict_incidence_df.apply(lambda s, n: pd.Series(s.nlargest(n).index), axis=1, n=max(top_k_list))
 
     # Save result
     predict_incidence_df.to_csv('output/history/collab_probability_df.csv')
@@ -344,58 +344,59 @@ def test_collab_model_topk(
     print(predict_incidence_df)
     print(top_k_df)
 
-    hit_5 = []
-    hit_10 = []
-
-    global_labels = []
-    global_prediction = []
-
     # Calculate each score
-    for user in predict_incidence_df.index:
-        
-        # Data for scoring
-        user_topk_prediction = top_k_df.loc[user]
-        user_pred_prob = predict_incidence_df.loc[user]
-        
-        user_label = label_incidence_df.loc[user]
-        user_like = user_label[user_label==1].keys()
-        user_topk_label = label_incidence_df.loc[user, user_topk_prediction]
+    for top_k in top_k_list:
 
-        # get 01 prediction from probability
-        pred_tensor = torch.tensor(user_pred_prob.values)
-        value, idx = pred_tensor.topk(k=TOP_N)
-        user_pred_binary = torch.zeros(pred_tensor.size())
-        user_pred_binary[idx] = 1 
+        hit_5 = []
+        hit_10 = []
+        global_labels = []
+        global_prediction = []
 
-        global_labels.append(user_label.tolist())
-        global_prediction.append(user_pred_binary.tolist())
+        for user in predict_incidence_df.index:
+            
+            # Data for scoring
+            user_topk_prediction = top_k_df.loc[user]
+            user_pred_prob = predict_incidence_df.loc[user]
+            
+            user_label = label_incidence_df.loc[user]
+            user_like = user_label[user_label==1].keys()
+            user_topk_label = label_incidence_df.loc[user, user_topk_prediction]
 
-        # Top-10 hit ratio
-        user_top_10_label = user_topk_label[:10]
-        if len(user_top_10_label[user_top_10_label==1]) > 0:
-            hit_10.append(1)
-        else:
-            hit_10.append(0)
+            # get 01 prediction from probability
+            pred_tensor = torch.tensor(user_pred_prob.values)
+            value, idx = pred_tensor.topk(k=top_k)
+            user_pred_binary = torch.zeros(pred_tensor.size())
+            user_pred_binary[idx] = 1 
 
-        # Top-5 hit ratio
-        user_top_5_label = user_topk_label[:5]
-        if len(user_top_5_label[user_top_5_label==1]) > 0:
-            hit_5.append(1)
-        else:
-            hit_5.append(0)
+            global_labels.append(user_label.tolist())
+            global_prediction.append(user_pred_binary.tolist())
 
-    test_precision = precision_score(global_labels, global_prediction, zero_division=0, average="samples")
-    test_recall = recall_score(global_labels, global_prediction, zero_division=0, average="samples")
-    test_f1 = f1_score(global_labels, global_prediction, zero_division=0, average="samples")
+            # Top-10 hit ratio
+            user_top_10_label = user_topk_label[:10]
+            if len(user_top_10_label[user_top_10_label==1]) > 0:
+                hit_10.append(1)
+            else:
+                hit_10.append(0)
 
-    test_map = average_precision_score(label_incidence_df.to_numpy(), predict_incidence_df.to_numpy(), average="samples")
-    test_ndcg = ndcg(label_incidence_df.to_numpy(), predict_incidence_df.to_numpy(), TOP_N)
+            # Top-5 hit ratio
+            user_top_5_label = user_topk_label[:5]
+            if len(user_top_5_label[user_top_5_label==1]) > 0:
+                hit_5.append(1)
+            else:
+                hit_5.append(0)
 
-    test_hit_10 = sum(hit_10) / len(hit_10)
-    test_hit_5 = sum(hit_5) / len(hit_5)
+        test_precision = precision_score(global_labels, global_prediction, zero_division=0, average="samples")
+        test_recall = recall_score(global_labels, global_prediction, zero_division=0, average="samples")
+        test_f1 = f1_score(global_labels, global_prediction, zero_division=0, average="samples")
 
-    print(f"[ Test collab ] precision@{TOP_N} = {test_precision:.4f}, recall@{TOP_N} = {test_recall:.4f}, f1@{TOP_N} = {test_f1:.4f}")
-    print(f"[ Test collab ] MAP@{TOP_N} = {test_map:.4f}, NDCG@{TOP_N} = {test_ndcg:.4f}, HR@10 = {test_hit_10:.4f}, HR@5 = {test_hit_5:.4f}")
+        test_map = average_precision_score(label_incidence_df.to_numpy(), predict_incidence_df.to_numpy(), average="samples")
+        test_ndcg = ndcg(label_incidence_df.to_numpy(), predict_incidence_df.to_numpy(), top_k)
+
+        test_hit_10 = sum(hit_10) / len(hit_10)
+        test_hit_5 = sum(hit_5) / len(hit_5)
+
+        print(f"[ Test collab ] precision@{top_k} = {test_precision:.4f}, recall@{top_k} = {test_recall:.4f}, f1@{top_k} = {test_f1:.4f}")
+        print(f"[ Test collab ] MAP@{top_k} = {test_map:.4f}, NDCG@{top_k} = {test_ndcg:.4f}, HR@10 = {test_hit_10:.4f}, HR@5 = {test_hit_5:.4f}")
 
     with open('output/history/test_collab_topk.csv','a') as file:
         file.write(time.strftime("%m-%d %H:%M")+","+f"test,{test_precision:.4f},{test_recall:.4f},{test_f1:.4f},{test_map:.4f},{test_ndcg:.4f},{test_hit_10:.4f},{test_hit_5:.4f}" + "\n")

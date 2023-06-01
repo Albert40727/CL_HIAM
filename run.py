@@ -56,10 +56,6 @@ def main(**args):
         # Save model
         BASE_PATH = args["model_save_path_base"] + "model_base_{}.pt".format(time.strftime("%m%d%H%M%S"))
         torch.save(save_param, BASE_PATH)
-        
-        # Plot loss & acc curves
-        draw_loss_curve(train_loss, val_loss)
-        draw_acc_curve(train_acc, val_acc)
 
     # Train collab model
     elif args["collab_learning"] and args["train"]:
@@ -114,9 +110,9 @@ def main(**args):
                          list(co_attentions.parameters()) + 
                          list(fc_layers_stage2.parameters()))
         
-        user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=1e-4, weight_decay=1e-5)
-        item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-5, weight_decay=1e-6)
-        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-4, weight_decay=1e-5)
+        user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=1e-5, weight_decay=1e-6) # lr can't be to big. Causing NaN output!!!
+        item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-5, weight_decay=1e-6) # lr can't be to big. Causing NaN output!!!
+        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-3, weight_decay=1e-4)
 
         # Training 
         # Stage1 
@@ -164,13 +160,6 @@ def main(**args):
         STAGE2_PATH = args["model_save_path_cl"] + "model_cl_stage2_{}.pt".format(time.strftime("%m%d%H%M%S"))
         torch.save(save_param_stage2, STAGE2_PATH)
         
-        # Plot stage1 loss & acc
-        draw_loss_curve_stage1(t_user_loss_stage1, v_user_loss_stage1, t_item_loss_stage1, v_item_loss_stage1)
-        draw_acc_curve_stage1(t_user_acc_stage1, v_user_acc_stage1, t_item_acc_stage1, v_item_acc_stage1)
-        
-        # Plot stage2 loss & acc
-        draw_loss_curve_stage2(t_loss_stage2, v_loss_stage2)
-        draw_acc_curve_stage2(t_acc_stage2, v_acc_stage2)
 
     # Test model
     if not args["collab_learning"] and args["test"]:
@@ -213,8 +202,8 @@ def main(**args):
             checkpoint_stage2 = torch.load(STAGE2_PATH)
             print("Apply trained model param of the highest F1 score.")
         else:
-            SPEC_PATH_STAGE1 = args["model_save_path_cl"] + "model_cl_stage1_0423044524.pt" # Specify .pt you want to load
-            SPEC_PATH_STAGE2 = args["model_save_path_cl"] + "model_cl_stage2_0426041747.pt" # Specify .pt you want to load
+            SPEC_PATH_STAGE1 = args["model_save_path_cl"] + "model_cl_stage1_0529041619.pt" # Specify .pt you want to load
+            SPEC_PATH_STAGE2 = args["model_save_path_cl"] + "model_cl_stage2_0529133812.pt" # Specify .pt you want to load
             checkpoint_stage1 = torch.load(SPEC_PATH_STAGE1)
             checkpoint_stage2 = torch.load(SPEC_PATH_STAGE2)
             print(f"Apply specified collab model param.")
@@ -249,6 +238,22 @@ def main(**args):
             fc_layers_stage2,
         )
 
+    # Be warning that plot will block the process. Therefore, should be put at the final process.
+    if not args["collab_learning"] and args["train"]:
+        # Plot loss & acc curves
+        draw_loss_curve(train_loss, val_loss)
+        draw_acc_curve(train_acc, val_acc)
+    elif args["collab_learning"] and args["train"]:
+        # Plot stage1 loss & acc
+        draw_loss_curve_stage1(t_user_loss_stage1, v_user_loss_stage1, t_item_loss_stage1, v_item_loss_stage1)
+        draw_acc_curve_stage1(t_user_acc_stage1, v_user_acc_stage1, t_item_acc_stage1, v_item_acc_stage1)
+        
+        # Plot stage2 loss & acc
+        draw_loss_curve_stage2(t_loss_stage2, v_loss_stage2)
+        draw_acc_curve_stage2(t_acc_stage2, v_acc_stage2)
+
+
+
 
 if __name__ == "__main__":
 
@@ -279,10 +284,10 @@ if __name__ == "__main__":
         "batch_size": 32,
         "collab_learning": True,
         "epoch" : 10, # when "collab_learning" is False
-        "epoch_stage1" : 50, # when "collab_learning" is True
+        "epoch_stage1" : 30, # when "collab_learning" is True
         "epoch_stage2" : 10, # when "collab_learning" is True
-        "trade_off_stage1": 0.5, # when "collab_learning" is True, portion of soft-label
-        "trade_off_stage2": 0.5, # when "collab_learning" is True, portion of soft-label
+        "trade_off_stage1": 0.4, # when "collab_learning" is True, portion of soft-label
+        "trade_off_stage2": 0.4, # when "collab_learning" is True, portion of soft-label
     }
 
     print("Device: ", device)

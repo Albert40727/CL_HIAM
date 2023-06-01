@@ -69,9 +69,9 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
 
             # Compute the informations for current batch.
             acc = (result_logits == labels).float().mean()
-            precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
-            recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0)
-            f1 = f1_score(labels.cpu(), result_logits.cpu())
+            precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="samples")
+            recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="samples")
+            f1 = f1_score(labels.cpu(), result_logits.cpu(), average="samples")
             # ndcg = ndcg_score(labels.unsqueeze(dim=-1).cpu(), result_logits.unsqueeze(dim=-1).cpu())
 
             # Record the information.
@@ -139,9 +139,9 @@ def train_model(args, train_loader, val_loader, user_network, item_network, co_a
 
                 # Compute the information for current batch.
                 acc = (result_logits == labels).float().mean()
-                precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
-                recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0)
-                f1 = f1_score(labels.cpu(), result_logits.cpu())
+                precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="samples")
+                recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="samples")
+                f1 = f1_score(labels.cpu(), result_logits.cpu(), average="samples")
                 # ndcg = ndcg_score(labels.unsqueeze(dim=-1).cpu(), result_logits.unsqueeze(dim=-1).cpu())
 
                 # Record the information.

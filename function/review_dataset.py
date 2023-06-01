@@ -20,14 +20,14 @@ class ReviewDataset(Dataset):
 
         if mode == "train":
             user_list = list(set(self.review_df["UserID"]))
-            self.user_list = user_list[:int(0.7*len(user_list))]
+            self.user_list = user_list[:int(0.8*len(user_list))]
             item_list = list(set(self.review_df["AppID"]))
-            self.item_list = item_list[:int(0.7*len(item_list))]
+            self.item_list = item_list[:int(0.8*len(item_list))]
         elif mode == "val":
             user_list = list(set(self.review_df["UserID"]))
-            self.user_list = user_list[int(0.7*len(user_list)):]
+            self.user_list = user_list[int(0.8*len(user_list)):]
             item_list = list(set(self.review_df["AppID"]))
-            self.item_list = item_list[int(0.7*len(item_list)):]
+            self.item_list = item_list[int(0.8*len(item_list)):]
 
     
     def get_empty_incidence_df(self):
@@ -186,4 +186,3 @@ class ItemReviewDataseStage1(ReviewDataset):
 
     def __len__(self):
         return len(set(self.item_list))
-
