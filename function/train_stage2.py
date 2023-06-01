@@ -97,14 +97,14 @@ def train_stage2_model(args,
             optimizer.step()
             
             # Output after sigmoid is greater than 0.5 will be considered as 1, else 0.
-            result_logits = torch.where(logits > 0.5, 1, 0).squeeze(dim=-1)
+            result_logits = torch.where(logits > 0.5, 1, 0)
             labels = labels.to(args["device"])
 
             # Compute the informations for current batch.
             acc = (result_logits == labels).float().mean()
-            precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="samples")
-            recall = recall_score(labels.cpu(), result_logits.cpu(), average="samples")
-            f1 = f1_score(labels.cpu(), result_logits.cpu(), average="samples")
+            precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
+            recall = recall_score(labels.cpu(), result_logits.cpu())
+            f1 = f1_score(labels.cpu(), result_logits.cpu())
             
             # print(logits.squeeze(dim=-1))
             # print(f"loss = {loss:.5f}, acc = {acc:.4f}, precision = {precision:.4f}, recall = {recall:.4f}, f1 = {f1}")
@@ -170,9 +170,9 @@ def train_stage2_model(args,
 
                 # Compute the information for current batch.
                 acc = (result_logits == labels.to(args["device"])).float().mean()
-                precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="samples")
-                recall = recall_score(labels.cpu(), result_logits.cpu(), average="samples")
-                f1 = f1_score(labels.cpu(), result_logits.cpu(), average="samples")
+                precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
+                recall = recall_score(labels.cpu(), result_logits.cpu())
+                f1 = f1_score(labels.cpu(), result_logits.cpu())
                 # ndcg = ndcg_score(labels.unsqueeze(dim=-1).cpu(), result_logits.unsqueeze(dim=-1).cpu())
 
                 # Record the information.

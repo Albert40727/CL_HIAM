@@ -105,7 +105,7 @@ def main(**args):
                          list(fc_layers_stage2.parameters()))
         
         user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=1e-5, weight_decay=1e-6) # lr can't be to big. Causing NaN output!!!
-        item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-6, weight_decay=1e-7) # lr can't be to big. Causing NaN output!!!
+        item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-3, weight_decay=1e-4) # lr can't be to big. Causing NaN output!!!
         optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-3, weight_decay=1e-4)
 
         # Training 
