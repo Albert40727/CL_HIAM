@@ -237,14 +237,14 @@ def batch_train_stage1(args, review_emb, lda_groups, labels, *,
     optimizers.step()
 
     # Output after sigmoid is greater than "Q" will be considered as 1, else 0.
-    result_logits = torch.where(logits > 0.5, 1, 0).squeeze(dim=-1)
-    labels = labels.to(args["device"]).reshape(result_logits.size())
+    result_logits = torch.where(logits > 0.5, 1, 0).reshape(labels.shape)
+    labels = labels.to(args["device"])
 
     # Compute the informations for current batch.
     acc = (result_logits == labels).float().mean()
     precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="samples")
     recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="samples")
-    f1 = f1_score(labels.cpu(), result_logits.cpu(), average="samples")
+    f1 = f1_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="samples")
 
     # rate = sum(result_logits==labels)/sum(labels)
     # print(f"loss:{loss:.4f}", f"result logit: {sum(result_logits)}", f"labels: {sum(labels)}", f"acc: {rate:.3f}", f"precision: {precision:.3f}", f"recall: {recall:.3f}")
@@ -265,14 +265,14 @@ def batch_val_stage1(args, review_emb, lda_groups, labels,
     loss = criterion(logits.reshape(labels.size()), labels.to(args["device"]).float())
 
     # Output after sigmoid is greater than 0.5 will be considered as 1, else 0.
-    result_logits = torch.where(logits > 0.5, 1, 0).squeeze(dim=-1)
-    labels = labels.to(args["device"]).reshape(result_logits.size())
+    result_logits = torch.where(logits > 0.5, 1, 0).reshape(labels.shape)
+    labels = labels.to(args["device"])
 
     # Compute the information for current batch.
     acc = (result_logits == labels).float().mean()
     precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="samples")
-    recall = recall_score(labels.cpu(), result_logits.cpu(), average="samples")
-    f1 = f1_score(labels.cpu(), result_logits.cpu(), average="samples")
+    recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="samples")
+    f1 = f1_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="samples")
     # ndcg = ndcg_score(labels.unsqueeze(dim=-1).cpu(), result_logits.unsqueeze(dim=-1).cpu())
 
     return loss.item(), acc, precision, recall, f1   
