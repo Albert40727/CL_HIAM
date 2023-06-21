@@ -31,4 +31,5 @@ class FcLayerStage1(nn.Module):
             x3 = torch.sigmoid(x3)
 
             return x, x1, x2, x3
+        
         return x

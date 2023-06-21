@@ -7,20 +7,22 @@ from tqdm import tqdm
 from sklearn.metrics import precision_score, recall_score, f1_score
 
 
-def train_stage2_model(args, 
-                       train_loader, 
-                       val_loader,                     
-                       user_network_stage1, 
-                       item_network_stage1,
-                       user_review_network,
-                       item_review_network,
-                       co_attentions, 
-                       fc_layers_stage2, 
-                       *, 
-                       bp_gate,
-                       criterion,
-                       models_param, 
-                       optimizer):
+def train_stage2_model(
+        args, 
+        train_loader, 
+        val_loader,                     
+        user_network_stage1, 
+        item_network_stage1,
+        user_review_network,
+        item_review_network,
+        co_attentions, 
+        fc_layers_stage2, 
+        *, 
+        bp_gate,
+        criterion,
+        models_param, 
+        optimizer
+    ):
     
     # For recording history usage
     t_loss_list_stage2, t_acc_list_stage2 , v_loss_list_stage2, v_acc_list_stage2, v_f1_list_stage2 = [], [], [], [], []
@@ -28,12 +30,13 @@ def train_stage2_model(args,
 
     print("-------------------------- STAGE2 START --------------------------")
     for epoch in range(args["epoch_stage2"]):
-
+        
+        # ---------- Train ----------
         n_epochs = args["epoch_stage2"]
 
         # Frozen stage1 models
-        user_network_stage1.eval()
-        item_network_stage1.eval()
+        user_network_stage1.val()
+        item_network_stage1.val()
 
         # Set stage2 models to train mode
         user_review_network.train()
@@ -68,21 +71,28 @@ def train_stage2_model(args,
             item_feature_2 = torch.cat((w_irf_2, item_mf_emb.to(args["device"])), dim=1)
             user_feature_3 = torch.cat((w_urf_3, user_mf_emb.to(args["device"])), dim=1)
             item_feature_3 = torch.cat((w_irf_3, item_mf_emb.to(args["device"])), dim=1)
+
             fc_input = torch.cat((user_feature, item_feature), dim=1)
             fc_input_1 = torch.cat((user_feature_1, item_feature_1), dim=1)
             fc_input_2 = torch.cat((user_feature_2, item_feature_2), dim=1)
             fc_input_3 = torch.cat((user_feature_3, item_feature_3), dim=1)
+
             logits, soft_label_1, soft_label_2, soft_label_3 = fc_layers_stage2(fc_input, fc_input_1, fc_input_2, fc_input_3)
 
             if torch.isnan(logits).any() == True:
                 print("Warning! Output logits contain NaN")
                 logits = torch.nan_to_num(logits, nan=0.0)
 
-            # model.train()  
-            loss = ((1-args["trade_off_stage2"])*criterion(logits.reshape(labels.size()), labels.to(args["device"]).float())
-                     + args["trade_off_stage2"]*(criterion(logits, soft_label_1) + 
-                                                 criterion(logits, soft_label_2) + 
-                                                 criterion(logits, soft_label_3)))
+            loss =  (args["trade_off_stage2"]*criterion(logits.squeeze(-1), labels.to(args["device"]).float())
+                     + (1-args["trade_off_stage2"])*(criterion(logits, (soft_label_1 + soft_label_2 + soft_label_3)/3))) +\
+                    (args["trade_off_stage2"]*criterion(soft_label_1.squeeze(-1), labels.to(args["device"]).float())
+                     + (1-args["trade_off_stage2"])*(criterion(soft_label_1, (logits + soft_label_2 + soft_label_3)/3))) +\
+                    (args["trade_off_stage2"]*criterion(soft_label_2.squeeze(-1), labels.to(args["device"]).float())
+                     + (1-args["trade_off_stage2"])*(criterion(soft_label_2, (logits + soft_label_1 + soft_label_3)/3))) +\
+                    (args["trade_off_stage2"]*criterion(soft_label_3.squeeze(-1), labels.to(args["device"]).float())
+                     + (1-args["trade_off_stage2"])*(criterion(soft_label_3, (logits + soft_label_1 + soft_label_2)/3)))
+
+            loss =  criterion(logits.squeeze(-1), labels.to(args["device"]).float())
 
             # Gradients stored in the parameters in the previous step should be cleared out first.
             optimizer.zero_grad()
@@ -105,9 +115,6 @@ def train_stage2_model(args,
             precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
             recall = recall_score(labels.cpu(), result_logits.cpu())
             f1 = f1_score(labels.cpu(), result_logits.cpu())
-            
-            # print(logits.squeeze(dim=-1))
-            # print(f"loss = {loss:.5f}, acc = {acc:.4f}, precision = {precision:.4f}, recall = {recall:.4f}, f1 = {f1}")
 
             # Record the information.
             train_loss.append(loss.item())
@@ -128,6 +135,11 @@ def train_stage2_model(args,
             file.write(time.strftime("%m-%d %H:%M")+","+f"train,stage2,{epoch + 1:03d}/{n_epochs:03d},{train_loss:.5f},{train_acc:.4f},{train_precision:.4f},{train_recall:.4f},{train_f1:.4f}" + "\n")
 
         # ---------- Validation ----------
+
+        # Frozen stage1 models
+        user_network_stage1.eval()
+        item_network_stage1.eval()
+
         # Make sure the model is in eval mode so that some modules like dropout are disabled and work normally.
         user_review_network.eval()
         item_review_network.eval()
@@ -153,16 +165,20 @@ def train_stage2_model(args,
                 u_batch_size, i_batch_size = len(user_review_emb), len(item_review_emb)
                 user_arv = user_network_stage1(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
                 item_arv = item_network_stage1(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
+
                 urf = user_review_network(user_arv, user_review_mask.to(args["device"]), u_batch_size)
                 irf = item_review_network(item_arv, item_review_mask.to(args["device"]), i_batch_size)
+                urf, irf = bp_gate.apply(urf), bp_gate.apply(irf)
                 w_urf, w_irf = co_attentions(urf, irf)
+
                 user_feature = torch.cat((w_urf, user_mf_emb.to(args["device"])), dim=1)
                 item_feature = torch.cat((w_irf, item_mf_emb.to(args["device"])), dim=1)
+
                 fc_input = torch.cat((user_feature, item_feature), dim=1)
-                logits= fc_layers_stage2(fc_input)
+                logits = fc_layers_stage2(fc_input)
 
                 # We can still compute the loss (but not the gradient).
-                loss = criterion(torch.squeeze(logits, dim=1), labels.to(args["device"]).float())
+                loss = criterion(logits.squeeze(-1), labels.to(args["device"]).float())
 
                 # Output after sigmoid is greater than 0.5 will be considered as 1, else 0.
                 result_logits = torch.where(logits > 0.5, 1, 0).squeeze(dim=-1)
@@ -173,7 +189,6 @@ def train_stage2_model(args,
                 precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0)
                 recall = recall_score(labels.cpu(), result_logits.cpu())
                 f1 = f1_score(labels.cpu(), result_logits.cpu())
-                # ndcg = ndcg_score(labels.unsqueeze(dim=-1).cpu(), result_logits.unsqueeze(dim=-1).cpu())
 
                 # Record the information.
                 valid_loss.append(loss.item())
@@ -201,7 +216,8 @@ def train_stage2_model(args,
         v_f1_list_stage2.append(valid_f1)
 
         # Param need to be saved according to min loss of val
-        if valid_f1 == max(v_f1_list_stage2):
+        if valid_loss == min(v_loss_list_stage2):
+            print("Update model save_param !")
             save_param.update({
                 'user_review_network' : user_review_network.state_dict(),
                 'item_review_network' : item_review_network.state_dict(),

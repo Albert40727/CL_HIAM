@@ -20,7 +20,7 @@ class CoattentionNet(nn.Module):
 
     def parallel_co_attention(self, Q, V, W_b, W_v, W_q, w_hv, w_hq, tanh):  
         # Original paper:   V : B x 512 x 196(Seq), Q : B x L x 512
-        # Our paper:        V : B x 50 x 256, Q : B x 10 x 256
+        # Our paper:        V : B x 50 x 512, Q : B x 10 x 512
         # V = item, Q=User
 
         V = V.permute(0, 2, 1) # permute to fit original paper's input format

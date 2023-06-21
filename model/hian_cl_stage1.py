@@ -13,13 +13,8 @@ class HianCollabStage1(HianModel):
             nn.Conv1d(512, 512, self.args["sentence_cnn_ksize"]),
             nn.ReLU(),
         )
-        # self.sentence_attention_1 = nn.MultiheadAttention(512, num_heads=1, batch_first=True)
         self.sent_cross_attention_1 = Multihead_Cross_attention(512, 512, 512, num_heads=2)
 
-        # Aspect-Level Network
-        # self.aspect_attention_1 = nn.MultiheadAttention(512, num_heads=1, batch_first=True)
-        # self.aspect_attention_2 = nn.MultiheadAttention(512, num_heads=1, batch_first=True)
-        # self.aspect_attention_3 = nn.MultiheadAttention(512, num_heads=1, batch_first=True)
         self.aspect_cross_attention_1 = Multihead_Cross_attention(512, 512, 512, num_heads=2)
         self.aspect_cross_attention_2 = Multihead_Cross_attention(512, 512, 512, num_heads=2)
         self.aspect_cross_attention_3 = Multihead_Cross_attention(512, 512, 512, num_heads=2)
@@ -45,7 +40,6 @@ class HianCollabStage1(HianModel):
             x_ar_1 = self.aspect_level_network(x_as, lda_groups, self.aspect_cross_attention_1)
             x_ar_2 = self.aspect_level_network(x_as_1, lda_groups, self.aspect_cross_attention_2)
             x_ar_3 = self.aspect_level_network(x_as_1, lda_groups, self.aspect_cross_attention_3)
-
             return x_ar, x_ar_1, x_ar_2, x_ar_3
         
         return x_ar

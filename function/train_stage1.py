@@ -189,8 +189,9 @@ def train_stage1_model(args,
         v_user_f1_list_stage1.append(user_val_f1)
         v_item_f1_list_stage1.append(item_val_f1)
 
-        # Param need to be saved according to min loss of val
+        # Param need to be saved according to highest f1 of val
         if user_val_f1 == max(v_user_f1_list_stage1):
+            print("Update User network save_param !")
             save_param.update({
                 'user_network_stage1': user_network.state_dict(),
                 'user_fc_layer_stage1' : user_fc_layer_stage1.state_dict(),
@@ -198,6 +199,7 @@ def train_stage1_model(args,
                 })
 
         if item_val_f1 == max(v_item_f1_list_stage1):
+            print("Update Item network save_param !")
             save_param.update({
                 'item_network_stage1': item_network.state_dict(),
                 'item_fc_layer_stage1' : item_fc_layer_stage1.state_dict(),
@@ -218,11 +220,17 @@ def batch_train_stage1(args, review_emb, lda_groups, labels, *,
     if torch.isnan(torch.stack((logits, soft_label_1, soft_label_2, soft_label_3))).any() == True:
         print(f"Warning! {target} network's output logits contain NaN")
         logits = torch.nan_to_num(logits, nan=0.0)
-
-    loss = ((1-args["trade_off_stage1"])*criterion(logits.reshape(labels.size()), labels.to(args["device"]).float())
-             + args["trade_off_stage1"]*(criterion(logits, soft_label_1) + 
-                                         criterion(logits, soft_label_2) + 
-                                         criterion(logits, soft_label_3)))
+    
+    loss =  (args["trade_off_stage1"]*criterion(logits.reshape(labels.size()), labels.to(args["device"]).float())
+                + (1-args["trade_off_stage1"])*(criterion(logits, (soft_label_1 + soft_label_2 + soft_label_3)/3))) +\
+            (args["trade_off_stage1"]*criterion(soft_label_1.reshape(labels.size()), labels.to(args["device"]).float())
+                + (1-args["trade_off_stage1"])*(criterion(soft_label_1, (logits + soft_label_2 + soft_label_3)/3))) +\
+            (args["trade_off_stage1"]*criterion(soft_label_2.reshape(labels.size()), labels.to(args["device"]).float())
+                + (1-args["trade_off_stage1"])*(criterion(soft_label_2, (logits + soft_label_1 + soft_label_3)/3))) +\
+            (args["trade_off_stage1"]*criterion(soft_label_3.reshape(labels.size()), labels.to(args["device"]).float())
+                + (1-args["trade_off_stage1"])*(criterion(soft_label_3, (logits + soft_label_1 + soft_label_2)/3)))
+    
+    loss =  criterion(logits.reshape(labels.size()), labels.to(args["device"]).float())
             
     # Gradients stored in the parameters in the previous step should be cleared out first.
     optimizers.zero_grad()
@@ -245,9 +253,6 @@ def batch_train_stage1(args, review_emb, lda_groups, labels, *,
     precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="samples")
     recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="samples")
     f1 = f1_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="samples")
-
-    # rate = sum(result_logits==labels)/sum(labels)
-    # print(f"loss:{loss:.4f}", f"result logit: {sum(result_logits)}", f"labels: {sum(labels)}", f"acc: {rate:.3f}", f"precision: {precision:.3f}", f"recall: {recall:.3f}")
 
     return loss.item(), acc, precision, recall, f1
 
@@ -273,7 +278,6 @@ def batch_val_stage1(args, review_emb, lda_groups, labels,
     precision = precision_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="samples")
     recall = recall_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="samples")
     f1 = f1_score(labels.cpu(), result_logits.cpu(), zero_division=0, average="samples")
-    # ndcg = ndcg_score(labels.unsqueeze(dim=-1).cpu(), result_logits.unsqueeze(dim=-1).cpu())
 
     return loss.item(), acc, precision, recall, f1   
 

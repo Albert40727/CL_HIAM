@@ -66,10 +66,10 @@ def main(**args):
         item_train_dataset_stage1 = ItemReviewDataseStage1(args, mode="train")
         item_val_dataset_stage1 = ItemReviewDataseStage1(args, mode="val")
         
-        user_train_loader_stage1 = DataLoader(user_train_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
-        user_val_loader_stage1 = DataLoader(user_val_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
-        item_train_loader_stage1 = DataLoader(item_train_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
-        item_val_loader_stage1 = DataLoader(item_val_dataset_stage1, batch_size=args["batch_size"], shuffle=True)
+        user_train_loader_stage1 = DataLoader(user_train_dataset_stage1, batch_size=args["batch_size_stage1_user"], shuffle=True)
+        user_val_loader_stage1 = DataLoader(user_val_dataset_stage1, batch_size=args["batch_size_stage1_user"], shuffle=True)
+        item_train_loader_stage1 = DataLoader(item_train_dataset_stage1, batch_size=args["batch_size_stage1_item"], shuffle=True)
+        item_val_loader_stage1 = DataLoader(item_val_dataset_stage1, batch_size=args["batch_size_stage1_item"], shuffle=True)
 
         # Init model
         # Stage 1
@@ -104,9 +104,9 @@ def main(**args):
                          list(co_attentions.parameters()) + 
                          list(fc_layers_stage2.parameters()))
         
-        user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=1e-5, weight_decay=1e-6) # lr can't be to big. Causing NaN output!!!
-        item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=1e-3, weight_decay=1e-4) # lr can't be to big. Causing NaN output!!!
-        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-3, weight_decay=1e-4)
+        user_optimizer_stage1 = torch.optim.Adam(user_params_stage1, lr=2e-5, weight_decay=2e-6) # lr can't be to big. Causing NaN output!!!
+        item_optimizer_stage1 =  torch.optim.Adam(item_params_stage1, lr=4e-5, weight_decay=4e-6) # lr can't be to big. Causing NaN output!!!
+        optimizer_stage2 = torch.optim.Adam(params_stage2, lr=1e-5, weight_decay=1e-6)
 
         # Training 
         # Stage1 
@@ -129,7 +129,13 @@ def main(**args):
         STAGE1_PATH = args["model_save_path_cl"] + "model_cl_stage1_{}.pt".format(time.strftime("%m%d%H%M%S"))
         torch.save(save_param_stage1, STAGE1_PATH)
 
+
         # Load stage1 model before training stage2
+        # =======================================================
+        # STAGE1_PATH = args["model_save_path_cl"]+ "model_cl_stage1_0615205129.pt"
+        # save_param_stage1 = torch.load(args["model_save_path_cl"]+ "model_cl_stage1_0615205129.pt")
+        # =======================================================
+
         user_network_stage1.load_state_dict(save_param_stage1["user_network_stage1"])
         item_network_stage1.load_state_dict(save_param_stage1["item_network_stage1"])
 
@@ -153,7 +159,7 @@ def main(**args):
         # Save stage2 model
         STAGE2_PATH = args["model_save_path_cl"] + "model_cl_stage2_{}.pt".format(time.strftime("%m%d%H%M%S"))
         torch.save(save_param_stage2, STAGE2_PATH)
-        
+       
 
     # Test model
     if not args["collab_learning"] and args["test"]:
@@ -177,7 +183,7 @@ def main(**args):
         user_network_model.load_state_dict(checkpoint["user_review_network"])
         item_network_model.load_state_dict(checkpoint["item_review_network"])
         co_attention.load_state_dict(checkpoint["co_attention"])
-        fc_layer.load_state_dict(checkpoint["fc_layer"])
+        fc_layer.load_state_dict(checkpoint["fc_layer"]) 
 
         # Exacute test
         test_model_topk(
@@ -196,8 +202,8 @@ def main(**args):
             checkpoint_stage2 = torch.load(STAGE2_PATH)
             print("Apply trained model param of the highest F1 score.")
         else:
-            SPEC_PATH_STAGE1 = args["model_save_path_cl"] + "model_cl_stage1_0529041619.pt" # Specify .pt you want to load
-            SPEC_PATH_STAGE2 = args["model_save_path_cl"] + "model_cl_stage2_0529133812.pt" # Specify .pt you want to load
+            SPEC_PATH_STAGE1 = args["model_save_path_cl"] + "model_cl_stage1_0613134442.pt" # Specify .pt you want to load
+            SPEC_PATH_STAGE2 = args["model_save_path_cl"] + "model_cl_stage2_0618234448.pt" # Specify .pt you want to load
             checkpoint_stage1 = torch.load(SPEC_PATH_STAGE1)
             checkpoint_stage2 = torch.load(SPEC_PATH_STAGE2)
             print(f"Apply specified collab model param.")
@@ -213,7 +219,7 @@ def main(**args):
         item_review_network = ReviewNetworkStage2(args).to(device)
         co_attentions = CoattentionNetStage2(args, args["co_attention_emb_dim"]).to(device)
         fc_layers_stage2 = FcLayerStage2().to(device)
-        user_network_stage1.load_state_dict(checkpoint_stage1["user_network_stage1"])
+        user_network_stage1.load_state_dict(checkpoint_stage1["user_network_stage1"]) 
         item_network_stage1.load_state_dict(checkpoint_stage1["item_network_stage1"])
         user_review_network.load_state_dict(checkpoint_stage2["user_review_network"])
         item_review_network.load_state_dict(checkpoint_stage2["item_review_network"])
@@ -272,16 +278,18 @@ if __name__ == "__main__":
         "emb_dim" : 768,
         "co_attention_emb_dim" : 512,
         "mf_emb_dim" : 128,
-        "lda_group_num": 6, # Include default 0 group. 
+        "lda_group_num": 8, # Include default 0 group. 
         "word_cnn_ksize" : 5,   # odd number 
         "sentence_cnn_ksize" : 3,   # odd number 
         "batch_size": 32,
+        "batch_size_stage1_user": 32,
+        "batch_size_stage1_item": 16,
         "collab_learning": True,
         "epoch" : 10, # when "collab_learning" is False
         "epoch_stage1" : 30, # when "collab_learning" is True
         "epoch_stage2" : 10, # when "collab_learning" is True
-        "trade_off_stage1": 0.4, # when "collab_learning" is True, portion of soft-label
-        "trade_off_stage2": 0.4, # when "collab_learning" is True, portion of soft-label
+        "trade_off_stage1": 0.6, # when "collab_learning" is True, portion of hard-label
+        "trade_off_stage2": 0.6, # when "collab_learning" is True, portion of hard-label
     }
 
     print("Device: ", device)

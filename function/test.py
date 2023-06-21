@@ -349,13 +349,19 @@ def test_collab_model_topk(
             # Exacute models       
             userId, itemId, user_review_emb, item_review_emb, user_review_mask, item_review_mask, user_lda_groups, item_lda_groups, user_mf_emb, item_mf_emb, labels = batch
             u_batch_size, i_batch_size = len(user_review_emb), len(item_review_emb)
-            user_logits = user_network_stage1(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
-            item_logits = item_network_stage1(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
-            urf = user_review_network(user_logits, user_review_mask.to(args["device"]),  u_batch_size)
-            irf = item_review_network(item_logits, item_review_mask.to(args["device"]), i_batch_size)
+            user_arv = user_network_stage1(user_review_emb.to(args["device"]), user_lda_groups.to(args["device"]))
+            item_arv = item_network_stage1(item_review_emb.to(args["device"]), item_lda_groups.to(args["device"]))
+
+            urf = user_review_network(user_arv, user_review_mask.to(args["device"]), u_batch_size)
+            irf = item_review_network(item_arv, item_review_mask.to(args["device"]), i_batch_size)
             w_urf, w_irf = co_attentions(urf, irf)
-            user_feature = torch.cat((w_urf, user_mf_emb.to(args["device"])), dim=1)
-            item_feature = torch.cat((w_irf, item_mf_emb.to(args["device"])), dim=1)
+
+            # user_feature = torch.cat((w_urf, user_mf_emb.to(args["device"])), dim=1)
+            # item_feature = torch.cat((w_irf, item_mf_emb.to(args["device"])), dim=1)
+
+            user_feature = w_urf
+            item_feature = w_irf
+            
             fc_input = torch.cat((user_feature, item_feature), dim=1)
             logits = fc_layers_stage2(fc_input)
 
@@ -363,7 +369,7 @@ def test_collab_model_topk(
                 predict_incidence_df.at[int(user), int(item)] = float(logit)
 
     # For topk score calculation
-    top_k_list = [10, 5]
+    top_k_list = [5, 10]
     top_k_df = predict_incidence_df.apply(lambda s, n: pd.Series(s.nlargest(n).index), axis=1, n=max(top_k_list))
 
     # Save result
@@ -419,7 +425,7 @@ def test_collab_model_topk(
         test_recall = recall_score(global_labels, global_prediction, zero_division=0, average="samples")
         test_f1 = f1_score(global_labels, global_prediction, zero_division=0, average="samples")
 
-        # MAP@K By 聖偉
+        # MAP@K, NDCG@K 聖偉
         true_id_list = [np.where(i==1)[0].tolist() for i in label_incidence_df.to_numpy()]
         pred_id_order = np.flip(predict_incidence_df.to_numpy().argsort()[:,-top_k:], axis=1)
         test_map = np.mean([apk(a, p, 10) for a, p in zip(true_id_list, pred_id_order)])

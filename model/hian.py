@@ -37,9 +37,11 @@ class HianModel(nn.Module):
                             |co_attention (Outside HianModel)
                             v
                         x: 32, D                 
-
+    
+                        
     Item network for example:
     (Some emb might be permuted during training due to the Conv1d input format)
+    (Beware that attention mask is different when inputing to torch's and our custom self attention) <---- important !!!!!!!
     Input Emb:              torch.Size([32, 50, 250, 768])
     Word Emb:               torch.Size([32*50, 250, 768])
     Sentence Emb:           torch.Size([32*50, 10, 512])
@@ -60,7 +62,7 @@ class HianModel(nn.Module):
             nn.Conv1d(768, 512, self.args["word_cnn_ksize"]),
             nn.ReLU(),
         )
-        self.word_attention = nn.MultiheadAttention(512, num_heads=2, batch_first=True)
+        self.word_attention = nn.MultiheadAttention(512, num_heads=2, batch_first=True) # torch's attention (can switch to custom either)
         
         # Sentence-Level Network
         self.sent_pad_size = int((self.args["sentence_cnn_ksize"]-1)/2)
@@ -68,14 +70,14 @@ class HianModel(nn.Module):
             nn.Conv1d(512, 512, self.args["sentence_cnn_ksize"]),
             nn.ReLU(),
         )
-        self.sent_cross_attention = Multihead_Cross_attention(512, 512, 512, num_heads=2)
+        self.sent_cross_attention = Multihead_Cross_attention(512, 512, 512, num_heads=2) # custom attention 
 
         # Aspect-Level Network
         self.lda_group_num = self.args["lda_group_num"]
-        self.aspect_cross_attention = Multihead_Cross_attention(512, 512, 512, num_heads=2)
+        self.aspect_cross_attention = Multihead_Cross_attention(512, 512, 512, num_heads=2) # custom attention 
         
         # Review-Level Network
-        self.review_cross_attention = Multihead_Cross_attention(512, 512, 512, num_heads=2)
+        self.review_cross_attention = Multihead_Cross_attention(512, 512, 512, num_heads=2) # custom attention 
 
     def word_level_network(self, x, word_cnn, word_attention):
         x = torch.permute(x, (0, 2, 1))
@@ -158,7 +160,7 @@ class HianModel(nn.Module):
         """
         Be careful that we're using self defined attention not torch.nn.MultiheadAttention
         """
-        x, _ = review_attention(x, x, mask=review_mask)
+        x, _ = review_attention(x, x, mask=~review_mask)
 
         return x 
 
